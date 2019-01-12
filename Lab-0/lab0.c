@@ -117,9 +117,12 @@ int main(int argc, char* argv[]){
         signal(SIGSEGV, segfault_handler);
     }
 
-    //If dump_flag set to 1, call the dumpCore method.
+    //If dump_flag set to 1, check if catch or segfault are also passed as arguments.
+    //If yes, call dumpCore(), otherwise do nothing because we don't want to exit prematurely.
     if (dump_flag) {
-        dumpCore();
+       if (catch_flag || seg_flag) {
+            dumpCore();
+       }
     }
 
     //If seg_flag set to 1, create a segmentation fault
