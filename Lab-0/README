@@ -1,0 +1,65 @@
+NAME: Arnav Garg
+EMAIL: arnavgrg@ucla.edu
+UID: 304911796
+
+Files included in this compressed tarball:
+    1. README:
+        The README file contains information about each of the files in the tarball, additional
+        exit codes and assumptions made while doing the lab, as well as links to any additional
+        external sources used to understand different commands/concepts.
+
+    2. lab0.c:
+        This file contains the source code for this lab. The program copies text from stdin to 
+        stdout. It takes five different optional flags, allowing users to pass in specific files
+        to read from or write to (or both), as well as create and catch segmentation faults. 
+        The program is also capable of dumping its core on segmentation faults if the flag is 
+        passed in. The program also has error checks throughout, and returns relevant error 
+        messages with specific descriptions of what went wrong. Each error also has a unique exit 
+        code making it easier to determine where the program potentially failed. 
+
+    3. Makefile:
+       The makefile contains the following targets
+       - default: Compiles lab0.c with the -g -Wall and -Wextra flags, creating an executable with 
+                  debugging symbol table information.
+       - clean: Remove all text and object files, the executable and compressed tarball, returning 
+                the folder back to its original state
+       - dist: Creates the submission compressed tarball, which contains lab0.c, README, Makefile, 
+               backtrace.png and breakpoint.png 
+       - check: Runs a quick smoke-test on whether or not the program seems to work, supports the 
+                required arguments, and properly reports success or failure. 
+          -- test1: Check if passing in a bad argument (incorrect flag or flag without an argument)
+                    returns the correct status code on exit.
+          -- test2: When input is passed in from a file and output is written to a file, compare text 
+                    to make sure both input and output are the same. This also ensures input can be 
+                    read from a file and written to a file rather than the default stdin/stdout.
+          -- test3: Test to ensure that lack of an argument for an input string causes an error
+          -- test4: Test to ensure output file is truncated before text from stdin is written to stdout.
+          -- test5: See if segfault is created correctly and raises the correct error code.
+          -- test6: Test to see if catching a segfault after setting up a segfault handler returns the 
+                    correct status code. 
+
+    4. backtrace.png:
+        This image showcases a stack backtrace that results from the creation of a segmentation fault. 
+        Since the code that causes segfault is in a separate method, the stack backtrace becomes 
+        interesting because it shows both the function calls, i.e, initally calling main and then 
+        main calling createSegfault.
+
+    5. breakpoint.png:
+        The segmentation fault is caused on line 225 of lab0.c. It is clear from the file that we are
+        trying to dereference a nullptr in virtual memory, causing a segmentation fault to occur.
+
+
+Additional exit codes used in source file in addition to those already provided:
+    5: Error reading from stdin
+    6. Error writing to stdout
+    7: No. of bytes read from stdin does not equal number of bytes written to stdout
+
+To get a better understanding of getopt, I used the following links:
+(Need to cite)
+    1. http://man7.org/linux/man-pages/man3/getopt.3.html
+    2. https://www.gnu.org/software/libc/manual/html_node/Example-of-Getopt.html
+    3. https://www.gnu.org/software/libc/manual/html_node/Getopt-Long-Options.html#Getopt-Long-Options 
+    4. https://stackoverflow.com/questions/7489093/getopt-long-proper-way-to-use-it
+
+To develop a better understanding of system calls in C, I used:
+    1. https://www.geeksforgeeks.org/input-output-system-calls-c-create-open-close-read-write/ 
