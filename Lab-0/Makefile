@@ -1,5 +1,5 @@
-# Name: Arnav Garg
-# Email: arnavgrg@ucla.edu
+# NAME: Arnav Garg
+# EMAIL: arnavgrg@ucla.edu
 # UID: 304911796
 
 #Silent ensures comments and actual line of code being executed

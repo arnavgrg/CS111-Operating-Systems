@@ -45,7 +45,7 @@ Files included in this compressed tarball:
         main calling createSegfault.
 
     5. breakpoint.png:
-        The segmentation fault is caused on line 225 of lab0.c. It is clear from the file that we are
+        The segmentation fault is caused on line 212 of lab0.c. It is clear from the file that we are
         trying to dereference a nullptr in virtual memory, causing a segmentation fault to occur.
 
 
