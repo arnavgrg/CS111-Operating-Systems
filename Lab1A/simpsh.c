@@ -68,8 +68,8 @@ int main(int argc, char* argv[]){
             int curr = optind-1;
             while (curr < argc) {
                 char* s = argv[curr];
-                if (strlen(s) > 2){
-                    if (s[0]=='-' && s[1]=='-'){
+                if (strlen(s) > 2) {
+                    if (s[0]=='-' && s[1]=='-') {
                         break;
                     }
                 }
@@ -95,7 +95,7 @@ int main(int argc, char* argv[]){
                     //Open file passed in using readonly flag.
                     int fd = open(optarg, O_RDONLY);
                     //If valid file descriptor returned
-                    if (fd >= 0){
+                    if (fd >= 0) {
                         //Add it to the fileds array
                         fileds[numfiles] = fd;
                         //Incremenet number of fileds in array by 1.
