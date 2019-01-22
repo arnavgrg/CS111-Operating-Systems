@@ -161,20 +161,22 @@ int main(int argc, char* argv[]){
                 //Incrememnt paramIndex by 1 (also keeps track of number 
                 //of elements in paramIndex)
                 paramIndex++;
-                
                 //Create an integer array of file descriptors used 
                 int cfiles [3] = {atoi(params[0]), atoi(params[1]), atoi(params[2])};
-                
                 //Check if file desctiptors passed in are valid
                 //Need to convert the first 3 arguments from strings to numbers
-                //so that they can be used as valid file descriptors
+                //so that they can be used as valid file desriptors
                 for (int i=0; i < 3; i++) {
-                    if ((int)cfiles[i] < 0 || (int)cfiles[i] > numfiles) {
-                        fprintf(stderr,"Invalid file descriptor");
-                        //Flush stderr after writing to it.
-                        fflush(stderr);
+                    if ((int)cfiles[i] < 0 || (int)cfiles[i] >= numfiles) {
+                        //Set error flag to 1.
                         errorFlag = 1;
                     }
+                }
+                //If error flag detected, write to stderr.
+                if (errorFlag){
+                    fprintf(stderr,"Invalid file descriptor\n");
+                    //Flush stderr after writing to it.
+                    fflush(stderr);
                 }
                 //Use fork to create a new child process
                 pid_t pid = fork();
@@ -187,6 +189,7 @@ int main(int argc, char* argv[]){
                     errorFlag = 1;
                     break;
                 }
+                //Child process
                 if (pid == (pid_t)0) {
                     //Increment file descriptors by 3
                     for (int i=0; i<3; i++) {

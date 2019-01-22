@@ -14,9 +14,7 @@ clean:
 dist:
 	tar -czf lab1-304911796.tar.gz simpsh.c Makefile README
 
-check: default 
-	./test.sh
-	#need to add target: clean somehow after running test.sh shell script
+check: default ./test.sh
 
 
 
