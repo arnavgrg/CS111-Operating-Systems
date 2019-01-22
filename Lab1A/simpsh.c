@@ -1,6 +1,6 @@
 /*
-Name: Arnav Garg
-Email: arnavgrg@ucla.edu
+NAME: Arnav Garg
+EMAIL ID: arnavgrg@ucla.edu
 UID: 304911796
 */
 
@@ -21,9 +21,6 @@ UID: 304911796
 #define comm 'c'
 #define verb 'v'
 
-//Function definitions
-void incorrectOptions();
-
 //Main function to do all the work
 int main(int argc, char* argv[]){
 
@@ -40,6 +37,10 @@ int main(int argc, char* argv[]){
     int fileds[argc];
     //Variable to keep track of number of fileds in fileds array.
     int numfiles = 0;
+
+    //errorFlag
+    int errorFlag = 0;
+    int commandErrorFlag = 0;
 
     //Struct containing flags that can passed through cmd
     static struct option choices[] = {
@@ -58,15 +59,12 @@ int main(int argc, char* argv[]){
         char* params[argc];
         int paramIndex = 0;
 
-        //Store optind value before verbose_flag incase verbose_flag if
-        //statement modifies it.
-        int originalOptind = optind+1;
-
         //If verbose flag is turned on, write commands to stdout.
         if (verbose_flag) {
             //Write flag name to output
             fprintf(stdout,"--%s",choices[option_index].name);
             fflush(stdout);
+            //Set curr to the first non-option
             int curr = optind-1;
             while (curr < argc) {
                 char* s = argv[curr];
@@ -108,6 +106,8 @@ int main(int argc, char* argv[]){
                         fprintf(stderr, "Cannot read from file: %d - %s\n", errno, strerror(errno));
                         //Flush stderr
                         fflush(stderr);
+                        //Set error flag to 1
+                        errorFlag = 1;
                     }     
                 }
                 break;
@@ -125,6 +125,8 @@ int main(int argc, char* argv[]){
                         fprintf(stderr, "Cannot create or truncate output file:  %d - %s\n", errno, strerror(errno));
                         //Flush stderr
                         fflush(stderr);
+                        //Set error flag to 1
+                        errorFlag = 1;
                     }
                 }
                 break;
@@ -136,9 +138,10 @@ int main(int argc, char* argv[]){
                 //find all the parameters passed in after the --command flag
                 paramIndex = 0;
                 //Go through all the remaining arguments in the argv array
-                while (originalOptind < argc) {
+                int curr = optind-1;
+                while (curr < argc) {
                     //Set opt to the non-option
-                    char* opt = argv[originalOptind];
+                    char* opt = argv[curr];
                     //Make sure opt isn't a flag
                     if (strlen(opt) > 1) {
                         if (opt[0] == '-' && opt[1] == '-'){
@@ -150,11 +153,14 @@ int main(int argc, char* argv[]){
                     //Increment index by 1
                     paramIndex++;
                     //Increment optind by 1 to move to the next option in argv
-                    originalOptind++;
+                    curr++;
                 }
                 //Need to set the last element in params to NULL so 
                 //that execvp can be called correctly 
                 params[paramIndex] = NULL;
+                //Incrememnt paramIndex by 1 (also keeps track of number 
+                //of elements in paramIndex)
+                paramIndex++;
                 
                 //Create an integer array of file descriptors used 
                 int cfiles [3] = {atoi(params[0]), atoi(params[1]), atoi(params[2])};
@@ -163,13 +169,12 @@ int main(int argc, char* argv[]){
                 //Need to convert the first 3 arguments from strings to numbers
                 //so that they can be used as valid file descriptors
                 for (int i=0; i < 3; i++) {
-                    if (cfiles[i] < 0 || cfiles[i] > numfiles){
-                        fprintf(stderr,"Invalid file descriptor", errno, strerror(errno));
+                    if ((int)cfiles[i] < 0 || (int)cfiles[i] > numfiles) {
+                        fprintf(stderr,"Invalid file descriptor");
                         //Flush stderr after writing to it.
                         fflush(stderr);
+                        errorFlag = 1;
                     }
-                    fileds[numfiles] = cfiles[i];
-                    numfiles++;
                 }
                 //Use fork to create a new child process
                 pid_t pid = fork();
@@ -179,25 +184,30 @@ int main(int argc, char* argv[]){
                     fprintf(stderr, "Error creating child process", errno, strerror(errno));
                     //Flush stderr after writing to it.
                     fflush(stderr);
+                    errorFlag = 1;
                     break;
                 }
-                else if (pid == (pid_t)0) {
+                if (pid == (pid_t)0) {
                     //Increment file descriptors by 3
-                    for (int i=0; i<3; i++){
-                        cfiles[i] += 3;
-                        dup2(cfiles[i],i);
+                    for (int i=0; i<3; i++) {
+                        close(i);
+                        dup(fileds[cfiles[i]]);
+                        close(fileds[cfiles[i]]);
                     }
                     //Call execvp to run the command in the child process.
-                    if ((execvp(params[3],&params[3])) < 0){
+                    if ((execvp(params[3], &params[3])) < 0){
                         fprintf(stderr, "Error running command", errno, strerror(errno));
                         //Flush stderr after writing to it.
                         fflush(stderr);
+                        errorFlag = 1;
                     }
                 }
                 break;
             default:
-                //If wrong/unrecognized flag is passed in, call the icorrectOptions method
-                incorrectOptions();
+                //Print to stderr and return with status 1.
+                fprintf(stderr, "Only valid flags are: --rdonly, --wronly, --verbose and --command\n");
+                fflush(stderr);
+                errorFlag = 1;
                 break;
         }
     }
@@ -208,12 +218,5 @@ int main(int argc, char* argv[]){
     }
 
     //If no errors, exit with code 0.
-    exit(0);
-}
-
-//If wrong flag/option is passed into the program
-void incorrectOptions() {
-    //Print to stderr and return with status 1.
-    fprintf(stderr, "Only valid flags are: --rdonly, --wronly, --verbose and --command\n");
-    fflush(stderr);
+    exit(errorFlag);
 }
