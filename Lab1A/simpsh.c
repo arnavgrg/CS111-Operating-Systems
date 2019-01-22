@@ -43,10 +43,10 @@ int main(int argc, char* argv[]){
 
     //Struct containing flags that can passed through cmd
     static struct option choices[] = {
-        {"rdonly",1,NULL,rd},
-        {"wronly",1,NULL,wr},
-        {"command",4,NULL,comm},
-        {"verbose",0,NULL,verb},
+        {"rdonly",required_argument,NULL,rd},
+        {"wronly",required_argument,NULL,wr},
+        {"command",required_argument,NULL,comm},
+        {"verbose",no_argument,NULL,verb},
         {0,0,0,0}
     };
 
@@ -60,26 +60,27 @@ int main(int argc, char* argv[]){
 
         //Store optind value before verbose_flag incase verbose_flag if
         //statement modifies it.
-        int originalOptind = optind;
+        int originalOptind = optind+1;
 
         //If verbose flag is turned on, write commands to stdout.
         if (verbose_flag) {
-            const char* name = choices[option_index].name;
-            write(1,"--",sizeof("--"));
-            write(1,name,sizeof(name));
-            while (optind < argc) {
-                char* s = argv[optind];
-                if (strlen(s) > 1){
+            //Write flag name to output
+            fprintf(stdout,"--%s",choices[option_index].name);
+            fflush(stdout);
+            int curr = optind-1;
+            while (curr < argc) {
+                char* s = argv[curr];
+                if (strlen(s) > 2){
                     if (s[0]=='-' && s[1]=='-'){
                         break;
                     }
                 }
-                char* buffer = " ";
-                write(1,buffer,sizeof(buffer));
-                write(1,s,sizeof(s));
-                optind++;
+                fprintf(stdout, " %s", s);
+                fflush(stdout);
+                curr++;
             }
-            write(1,"\n",sizeof("\n"));
+            fprintf(stdout, "\n");
+            fflush(stdout);
         }
         
         //choices[option_index].name has the value of the current flag that was detecte
