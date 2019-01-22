@@ -1,0 +1,1 @@
+echo "Starting smoke test cases..."
