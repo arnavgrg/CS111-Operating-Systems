@@ -81,6 +81,7 @@ int main(int argc, char* argv[]){
                 /*optarg contains argument for the given flag*/
                 /*incase of error/failure, optarg is set to null*/
                 if (optarg) {
+                    //Open file using open syscall.
                     infile_fd = open(optarg, O_RDONLY);
                     /* 
                     Spec: File Descriptor Management

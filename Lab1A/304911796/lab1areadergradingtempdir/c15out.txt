@@ -1,0 +1,4 @@
+simpsh: invalid option -- p
+Only valid flags are: --rdonly, --wronly, --verbose and --command
+Invalid file descriptor
+Invalid file descriptor
