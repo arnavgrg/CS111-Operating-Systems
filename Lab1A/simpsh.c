@@ -25,13 +25,12 @@ UID: 304911796
 int main(int argc, char* argv[]){
 
     //Needed for getopt_long
-    int choice; 
+    int choice;
+    //Set option_index for getopt_long
     int option_index = 0;
 
     //Set to 1 if --verbose is passed in
     int verbose_flag = 0; 
-    //To keep track of current position of index in argv while parsing command
-    int command_index = -1;
     
     //Array to keep track of all the file descriptors so far
     int fileds[argc];
@@ -40,6 +39,7 @@ int main(int argc, char* argv[]){
 
     //errorFlag
     int errorFlag = 0;
+    //Separate error flag for command
     int commandErrorFlag = 0;
 
     //Struct containing flags that can passed through cmd
@@ -66,27 +66,28 @@ int main(int argc, char* argv[]){
             fflush(stdout);
             //Set curr to the first non-option
             int curr = optind-1;
+            //Keep recursing through argv vector
             while (curr < argc) {
+                //Set s to temporary 
                 char* s = argv[curr];
+                //Stop when the next flag is detected
                 if (strlen(s) > 2) {
                     if (s[0]=='-' && s[1]=='-') {
                         break;
                     }
                 }
+                //Print to stdout
                 fprintf(stdout, " %s", s);
                 fflush(stdout);
+                //Increment optind by 1
                 curr++;
             }
+            //Print a new line
             fprintf(stdout, "\n");
             fflush(stdout);
         }
         
-        //choices[option_index].name has the value of the current flag that was detecte
-        //argv[optind] returns the first non option after the detected option
-        //if (verbose_flag) {
-            //fprintf(stdout, "%s", choices[option_index].name);
-        //}
-        
+        //Switch case to detect which flag was detected
         switch (choice) {
             case rd: 
                 /*optarg contains argument for the given flag*/
@@ -94,39 +95,51 @@ int main(int argc, char* argv[]){
                 if (optarg) {
                     //Open file passed in using readonly flag.
                     int fd = open(optarg, O_RDONLY);
-                    //If valid file descriptor returned
-                    if (fd >= 0) {
-                        //Add it to the fileds array
-                        fileds[numfiles] = fd;
-                        //Incremenet number of fileds in array by 1.
-                        numfiles += 1;
-                    } 
-                    //Otherwise write to stderr and exit.
-                    else {
+                    //If not a valid file descriptor returned
+                    if (fd < 0) {
                         fprintf(stderr, "Cannot read from file: %d - %s\n", errno, strerror(errno));
                         //Flush stderr
                         fflush(stderr);
                         //Set error flag to 1
                         errorFlag = 1;
-                    }     
+                        //Append this invalid file descriptor to fileds array
+                        fileds[numfiles] = fd;
+                        //Incremenet number of file descriptors in array by 1.
+                        numfiles += 1;
+                    } 
+                    //File descriptor is valid.
+                    else {
+                        //Append valid file descriptor to file descriptor array
+                        fileds[numfiles] = fd;
+                        //Increment number of fileds in array by 1.
+                        numfiles += 1;
+                    }
                 }
                 break;
             case wr:
                 if (optarg) {
                     //Open file passed in using writeonly sflag.
                     int fd = open(optarg, O_WRONLY);
-                    //If the returned file descriptor is >= 0
-                    if (fd >= 0){
-                        fileds[numfiles] = fd;
-                        numfiles += 1;
-                    } else {
+                    //If the returned file descriptor is invalid
+                    if (fd < 0){
                         //File could not be created/truncated. Print to stderr and exit with status 3.
                         //char buffer[] = "Cannot create or truncate output file:  %d - %s";
-                        fprintf(stderr, "Cannot create or truncate output file:  %d - %s\n", errno, strerror(errno));
+                        fprintf(stderr, "Cannot write to file: %d - %s\n", errno, strerror(errno));
                         //Flush stderr
                         fflush(stderr);
                         //Set error flag to 1
                         errorFlag = 1;
+                        //Append invalid file descriptor to fileds array
+                        fileds[numfiles] = fd;
+                        //Increment number of file descriptors in array by 1
+                        numfiles += 1;
+                    } 
+                    //File descriptor is valid
+                    else {
+                        //Append valid file descriptor to fileds array
+                        fileds[numfiles] = fd;
+                        //Increment number of file descriptors in array by 1
+                        numfiles += 1;
                     }
                 }
                 break;
@@ -135,16 +148,20 @@ int main(int argc, char* argv[]){
                 verbose_flag = 1;
                 break;
             case comm:
-                //find all the parameters passed in after the --command flag
+                //Reset paramIndex
                 paramIndex = 0;
+                //Reset commandErrorFlag
+                commandErrorFlag = 0;
                 //Go through all the remaining arguments in the argv array
-                int curr = optind-1;
-                while (curr < argc) {
+                //Decrement optind by 1 so that it starts correctly at the first non-option
+                optind--;
+                //Go through all the elements in argv from the first non-option detected
+                while (optind < argc) {
                     //Set opt to the non-option
-                    char* opt = argv[curr];
-                    //Make sure opt isn't a flag
+                    char* opt = argv[optind];
+                    //Make sure opt isn't a flag by checking if the second character is a dash
                     if (strlen(opt) > 1) {
-                        if (opt[0] == '-' && opt[1] == '-'){
+                        if (*(opt+1) == '-'){
                             break;
                         }
                     }
@@ -153,7 +170,7 @@ int main(int argc, char* argv[]){
                     //Increment index by 1
                     paramIndex++;
                     //Increment optind by 1 to move to the next option in argv
-                    curr++;
+                    optind++;
                 }
                 //Need to set the last element in params to NULL so 
                 //that execvp can be called correctly 
@@ -161,65 +178,96 @@ int main(int argc, char* argv[]){
                 //Incrememnt paramIndex by 1 (also keeps track of number 
                 //of elements in paramIndex)
                 paramIndex++;
-                //Create an integer array of file descriptors used 
-                int cfiles [3] = {atoi(params[0]), atoi(params[1]), atoi(params[2])};
+                //Create a set of integers to map to the file descriptors passed in with command
+                int input = atoi(params[0]);
+                int output = atoi(params[1]);
+                int error = atoi(params[2]);
                 //Check if file desctiptors passed in are valid
-                //Need to convert the first 3 arguments from strings to numbers
-                //so that they can be used as valid file desriptors
-                for (int i=0; i < 3; i++) {
-                    if ((int)cfiles[i] < 0 || (int)cfiles[i] >= numfiles) {
-                        //Set error flag to 1.
-                        errorFlag = 1;
-                    }
+                //Check if input file descriptor is valid
+                if (input < 0 || input >= numfiles){
+                    //If it is invalid, set commandErrorFlag to 1
+                    commandErrorFlag = 1;
                 }
-                //If error flag detected, write to stderr.
-                if (errorFlag){
+                //Check if output file descriptor is valid
+                if (output < 0 || output >= numfiles){
+                    //If it is invalid, set commandErrorFlag to 1
+                    commandErrorFlag = 1;
+                }
+                //Check if error file descriptor is valid
+                if (error < 0 || error >= numfiles){
+                    //If it is invalid, set commandErrorFlag to 1
+                    commandErrorFlag = 1;
+                }
+                //If commandErrorFlag is detected, write to stderr.
+                if (commandErrorFlag) {
+                    //Set errorFlag to 1
+                    errorFlag = 1;
                     fprintf(stderr,"Invalid file descriptor\n");
                     //Flush stderr after writing to it.
                     fflush(stderr);
+                    //Break out of switch case so that the command cannot be carried out.
+                    break;
                 }
                 //Use fork to create a new child process
-                pid_t pid = fork();
+                int pid = fork();
                 //If 0 is returned, it is the child process, otherwise it is 
                 //the parent process. If it returns -1, child process creation was unsuccessful.
                 if (pid < 0){
                     fprintf(stderr, "Error creating child process", errno, strerror(errno));
                     //Flush stderr after writing to it.
                     fflush(stderr);
-                    errorFlag = 1;
+                    //Set commandErrorFlag to 1 to mark detection of error
+                    commandErrorFlag = 1;
+                    //Break out of switch case and do not continue any further
                     break;
                 }
                 //Child process
-                if (pid == (pid_t)0) {
-                    //Increment file descriptors by 3
-                    for (int i=0; i<3; i++) {
-                        close(i);
-                        dup(fileds[cfiles[i]]);
-                        close(fileds[cfiles[i]]);
-                    }
-                    //Call execvp to run the command in the child process.
-                    if ((execvp(params[3], &params[3])) < 0){
+                if (pid == 0) {
+                    //Go through each file descriptor one by one, and ensure that
+                    //Close stdin, stdout and stderr for the child process, and duplicate 
+                    //the file descriptors from the parent file descriptor array.
+                    close(0);
+                    dup2(fileds[input],0);
+                    close(fileds[input]);
+                    close(1);
+                    dup2(fileds[output],1);
+                    close(fileds[output]);
+                    close(2);
+                    dup2(fileds[error],2);
+                    close(fileds[error]);
+                    //Call execvp to run the command in the child process, passing in
+                    //the command name as the first argument, and its parameters as
+                    //as the second argument in execvp
+                    if ((execvp(params[3], &params[3])) < 0) {
                         fprintf(stderr, "Error running command", errno, strerror(errno));
                         //Flush stderr after writing to it.
                         fflush(stderr);
-                        errorFlag = 1;
+                        //Set commandErrorFlag to 1 to highlight that an error was detected
+                        commandErrorFlag = 1;
                     }
                 }
                 break;
             default:
                 //Print to stderr and return with status 1.
                 fprintf(stderr, "Only valid flags are: --rdonly, --wronly, --verbose and --command\n");
+                //Flush stderr stream
                 fflush(stderr);
+                //Set errorFlag to 1 to mark that an error was detected
                 errorFlag = 1;
                 break;
         }
     }
 
-    //Close all file descriptors after using them.
+    //Close all file descriptors in the file descriptor array after using them.
     for (int i=0; i < numfiles; i++) {
         close(fileds[i]);
     }
 
-    //If no errors, exit with code 0.
+    //If commandErrorFlag detected, exit with exit(1)
+    if (commandErrorFlag){
+        exit(commandErrorFlag);
+    }
+    //Exit with errorFlag
+    //If error was found, this exits with 1, else exits with 0
     exit(errorFlag);
 }
