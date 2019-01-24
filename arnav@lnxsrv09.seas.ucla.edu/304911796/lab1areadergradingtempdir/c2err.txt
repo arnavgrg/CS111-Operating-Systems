@@ -1,2 +1,0 @@
-simpsh: unrecognized option `--bogus'
-Only valid flags are: --rdonly, --wronly, --verbose and --command

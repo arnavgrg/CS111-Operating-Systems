@@ -1,3 +1,0 @@
---rdonly a8.txt
---wronly test12err.txt
---command 1 0 2 cat
