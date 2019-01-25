@@ -7,7 +7,7 @@ UID: 304911796
 //Import libraries 
 #include <stdio.h> //printf()
 #include <errno.h> //defines the integer variable errno
-#include <unistd.h> //getopt_long(), execvp()
+#include <unistd.h> //getopt_long(), execvp(), pause()
 #include <getopt.h> //struct for getoptlong
 #include <stdlib.h> //exit(), malloc()
 #include <fcntl.h> //open() + File access modes used for open() O_RDONLY etc.
@@ -17,7 +17,7 @@ UID: 304911796
 #include <signal.h> //Used to raise/create signals
 
 //Macros that can be reused throughout the program
-//Macros for OFlags
+//Macros for OFlags                
 #define APPEND      O_APPEND
 #define CLOEXEC     O_CLOEXEC
 #define CREAT       O_CREAT
@@ -31,24 +31,27 @@ UID: 304911796
 //#define RSYNC       O_RSYNC
 #define SYNC        O_SYNC
 #define TRUNC       O_TRUNC
-//Macros for file-opening options
-#define READ        'l'
-#define WRITE       'm'
-#define RDWR        'n'
-#define PIPE        'o'
+//Macros for file-opening options  //Bit Mask
+#define READ        O_RDONLY       //00
+#define WRITE       O_WRONLY       //01
+#define RDWR        O_RDWR         //02
+#define PIPE        'a'
 //Macros for subcommand options
-#define COMMAND     'p'
-#define WAIT        'q'
+#define COMMAND     'b'
+#define WAIT        'c'
 //Macros for miscellaneous options
-#define CLOSE       'r'
-#define VERBOSE     's'
-#define PROFILE     't'
-#define ABORT       'u'
-#define CATCH       'v'
-#define IGNORE      'w'
+#define CLOSE       'd'
+#define VERBOSE     'e'
+#define PROFILE     'f'
+#define ABORT       'g'
+#define CATCH       'h'
+#define IGNORE      'i'
 //DEF instead of DEFAULT to differentiate with default in switch case
-#define DEF         'x' 
-#define PAUSE       'y'
+#define DEF         'j' 
+#define PAUSE       'k'
+
+//Function definitions
+void catch_handler(int signum);
 
 //Main function to do all the work
 int main(int argc, char* argv[]){
@@ -72,6 +75,9 @@ int main(int argc, char* argv[]){
 
     //flag to keep track of oflags passed in
     int oflags = 0;
+    
+    //File descriptor returned when open system-call used
+    int fd = 0;
 
     //Struct containing flags that can passed through cmd
     static struct option choices[] = {
@@ -106,7 +112,7 @@ int main(int argc, char* argv[]){
         {"ignore",      required_argument,  NULL,   IGNORE},
         {"default",     required_argument,  NULL,   DEF},
         {"pause",       no_argument,        NULL,   PAUSE},
-        //Last line needed for the struct to wrok
+        //Last line needed for the struct to work correctly
         {0,0,0,0}
     };
 
@@ -134,6 +140,7 @@ int main(int argc, char* argv[]){
                 //Stop when the next flag is detected
                 if (strlen(s) > 2) {
                     if (s[0]=='-' && s[1]=='-') {
+                        //Break out of while loop to prevent further execution of options
                         break;
                     }
                 }
@@ -148,109 +155,59 @@ int main(int argc, char* argv[]){
             fflush(stdout);
         }
         
-        //Switch case to detect which flag was detected
+        //Switch case to see which flag was detected by getopt_long
         switch (choice) {
-            //Perform the same operation for all the open-time flags
-            case APPEND:
-            case CLOEXEC:
-            case CREAT:
-            case DIRECTORY:
-            case DSYNC:
-            case EXCL:
-            case NOFOLLOW:
-            case NONBLOCK:
-            case SYNC:
-            case TRUNC:
-                /*runtime flags are essentially bitmasks; you create the value 
-                by the bitwise OR of the appropriate parameters (using the ‘|’ 
-                operator in C)*/
-                //After XOR, the value is saved back in oflags
-                oflags |= choice;
-                break;
             case VERBOSE:
                 //If verbose flag is passed in, set verbose_flag to 1. 
                 verbose_flag = 1;
                 break;
-            case READ: 
+            //Perform the same operation for all the open-time flags
+            case APPEND:    case CLOEXEC:    case CREAT:
+            case DIRECTORY: case DSYNC:      case EXCL:
+            case NOFOLLOW:  case NONBLOCK:   case SYNC: 
+            case TRUNC:
+                /*Open-time flags are essentially bitmasks; you create the value 
+                by the bitwise OR of the appropriate parameters (using the ‘|’ 
+                operator in C)*/
+                //After OR, the value is saved back in oflags
+                oflags |= choice;
+                break;
+            //Deal with rdonly, wronly and rdwr the same way
+            case READ:      case WRITE:      case RDWR: 
                 /*optarg contains argument for the given flag*/
                 /*incase of error/failure, optarg is set to null*/
-                if (optarg) {
-                    //Open file passed in using readonly flag.
-                    int fd = open(optarg, O_RDONLY);
-                    //If not a valid file descriptor returned
-                    if (fd < 0) {
-                        fprintf(stderr, "Cannot read from file: %d - %s\n", errno, strerror(errno));
-                        //Flush stderr
-                        fflush(stderr);
-                        //Set error flag to 1
-                        errorFlag = 1;
-                        //Append this invalid file descriptor to fileds array
-                        fileds[numfiles] = fd;
-                        //Incremenet number of file descriptors in array by 1.
-                        numfiles += 1;
-                    } 
-                    //File descriptor is valid.
-                    else {
-                        //Append valid file descriptor to file descriptor array
-                        fileds[numfiles] = fd;
-                        //Increment number of fileds in array by 1.
-                        numfiles += 1;
-                    }
+                //Open file passed in using readonly flag.
+                if (choice == READ || choice == WRITE) {
+                    fd = open(optarg, choice | oflags);
+                } else {
+                    //Provide read and write permissions since it must 
+                    //be the O_RDWR flag
+                    fd = open(optarg, choice | oflags, 0666);
                 }
-                break;
-            case WRITE:
-                if (optarg) {
-                    //Open file passed in using writeonly sflag.
-                    int fd = open(optarg, O_WRONLY);
-                    //If the returned file descriptor is invalid
-                    if (fd < 0){
-                        //File could not be created/truncated. Print to stderr.
-                        //char buffer[] = "Cannot create or truncate output file:  %d - %s";
-                        fprintf(stderr, "Cannot write to file: %d - %s\n", errno, strerror(errno));
-                        //Flush stderr
-                        fflush(stderr);
-                        //Set error flag to 1
-                        errorFlag = 1;
-                        //Append invalid file descriptor to fileds array
-                        fileds[numfiles] = fd;
-                        //Increment number of file descriptors in array by 1
-                        numfiles += 1;
-                    } 
-                    //File descriptor is valid
-                    else {
-                        //Append valid file descriptor to fileds array
-                        fileds[numfiles] = fd;
-                        //Increment number of file descriptors in array by 1
-                        numfiles += 1;
-                    }
+                //If not a valid file descriptor returned
+                if (fd < 0) {
+                    fprintf(stderr, "Unable to open file for read or write: %d - %s\n", errno, strerror(errno));
+                    //Flush stderr
+                    fflush(stderr);
+                    //Set error flag to 1
+                    errorFlag = 1;
+                    //Append this invalid file descriptor to fileds array
+                    fileds[numfiles] = fd;
+                    //Incremenet number of file descriptors in array by 1.
+                    numfiles += 1;
+                } 
+                //File descriptor is valid.
+                else {
+                    //Append valid file descriptor to file descriptor array
+                    fileds[numfiles] = fd;
+                    //Increment number of fileds in array by 1.
+                    numfiles += 1;
                 }
-                break;
-            case RDWR:
-                if (optarg) {
-                    //Open file passed in using rdwr flag.
-                    int fd = open(optarg, O_RDWR);
-                    //If the returned file descriptor is invalid
-                    if (fd < 0){
-                        //File could not be opened for read/write only. Print to stderr.
-                        //char buffer[] = "Cannot create or truncate output file:  %d - %s";
-                        fprintf(stderr, "Cannot open file for read and write: %d - %s\n", errno, strerror(errno));
-                        //Flush stderr
-                        fflush(stderr);
-                        //Set error flag to 1
-                        errorFlag = 1;
-                        //Append invalid file descriptor to fileds array
-                        fileds[numfiles] = fd;
-                        //Increment number of file descriptors in array by 1
-                        numfiles += 1;
-                    } 
-                    //File descriptor is valid
-                    else {
-                        //Append valid file descriptor to fileds array
-                        fileds[numfiles] = fd;
-                        //Increment number of file descriptors in array by 1
-                        numfiles += 1;
-                    }
-                }
+                /* reset fd */
+                fd = 0;
+                /* Need to reset oflags before next file-opening option is passed in
+                since we're done executing all the required open-time flags */
+                oflags = 0;
                 break;
             case COMMAND:
                 //Reset paramIndex
@@ -366,13 +323,23 @@ int main(int argc, char* argv[]){
                 }
                 break;
             case ABORT:
-                ;
                 //crash shell by creating a segmentation fault by assigning 
                 //a character to a nullptr
-                char *s = NULL;
-                *s = 'p';
-                //signal(SIGABRT, SIG_DFL)
-                //abort();
+                //segfault();
+                raise(SIGSEGV);
+                break;
+            case CATCH:
+                signal(atoi(optarg),catch_handler);
+                break;
+            case DEF:
+                //Handles the signal passed the program normally would
+                signal(atoi(optarg), SIG_DFL);
+                break;
+            case PAUSE:
+                /*The pause function suspends program execution until a 
+                signal arrives whose action is either to execute a handler 
+                function, or to terminate the process.*/
+                pause();
                 break;
             default:
                 //Print to stderr and return with status 1.
@@ -397,4 +364,13 @@ int main(int argc, char* argv[]){
     //Exit with errorFlag
     //If error was found, this exits with 1, else exits with 0
     exit(errorFlag);
+}
+
+//custom catch signal handler
+void catch_handler(int signum){
+    if (signum) {
+        fprintf(stderr, "%d caught: %s", errno, strerror(errno));
+        fflush(stderr);
+    }
+    exit(signum);
 }
