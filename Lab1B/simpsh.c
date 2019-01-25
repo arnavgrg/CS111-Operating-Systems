@@ -18,17 +18,19 @@ UID: 304911796
 
 //Macros that can be reused throughout the program
 //Macros for OFlags
-#define APPEND      'a'
-#define CLOEXEC     'b'
-#define CREAT       'c'
-#define DIRECTORY   'd'
-#define DSYNC       'e'
-#define EXCL        'f'
-#define NOFOLLOW    'g'
-#define NONBLOCK    'h'
-#define RSYNC       'i'
-#define SYNC        'j'
-#define TRUNC       'k'
+#define APPEND      O_APPEND
+#define CLOEXEC     O_CLOEXEC
+#define CREAT       O_CREAT
+#define DIRECTORY   O_DIRECTORY
+#define DSYNC       O_DSYNC
+#define EXCL        O_EXCL
+#define NOFOLLOW    O_NOFOLLOW
+#define NONBLOCK    O_NONBLOCK
+//Linux implements O_SYNC and O_DSYNC, but not O_RSYNC. (Somewhat
+//incorrectly, glibc defines O_RSYNC to have the same value as O_SYNC.)
+//#define RSYNC       O_RSYNC
+#define SYNC        O_SYNC
+#define TRUNC       O_TRUNC
 //Macros for file-opening options
 #define READ        'l'
 #define WRITE       'm'
@@ -44,7 +46,8 @@ UID: 304911796
 #define ABORT       'u'
 #define CATCH       'v'
 #define IGNORE      'w'
-#define DEF         'x' //DEF instead of DEFAULT to differentiate with default in switch case
+//DEF instead of DEFAULT to differentiate with default in switch case
+#define DEF         'x' 
 #define PAUSE       'y'
 
 //Main function to do all the work
@@ -68,8 +71,6 @@ int main(int argc, char* argv[]){
     int commandErrorFlag = 0;
 
     //flag to keep track of oflags passed in
-    /*This is a bit mask; you create the value by the bitwise OR of 
-    the appropriate parameters (using the ‘|’ operator in C)*/
     int oflags = 0;
 
     //Struct containing flags that can passed through cmd
@@ -83,6 +84,8 @@ int main(int argc, char* argv[]){
         {"excl",        no_argument,        NULL,   EXCL},
         {"nofollow",    no_argument,        NULL,   NOFOLLOW},
         {"nonblock",    no_argument,        NULL,   NONBLOCK},
+        //To deal with glibc's inability to understand O_RSYNC,
+        //if rsync is identified, return the same char_flag as sync
         {"rsync",       no_argument,        NULL,   SYNC},
         {"sync",        no_argument,        NULL,   SYNC},
         {"trunc",       no_argument,        NULL,   TRUNC},
@@ -120,7 +123,9 @@ int main(int argc, char* argv[]){
             //Write flag name to output
             fprintf(stdout,"--%s",choices[option_index].name);
             fflush(stdout);
-            //Set curr to the first non-option
+            /* Set curr to the first non-option and save this in a 
+            temporary variable to ensure getopt continues from 
+            where it left off in the argv array. */
             int curr = optind-1;
             //Keep recursing through argv vector
             while (curr < argc) {
@@ -145,6 +150,23 @@ int main(int argc, char* argv[]){
         
         //Switch case to detect which flag was detected
         switch (choice) {
+            //Perform the same operation for all the open-time flags
+            case APPEND:
+            case CLOEXEC:
+            case CREAT:
+            case DIRECTORY:
+            case DSYNC:
+            case EXCL:
+            case NOFOLLOW:
+            case NONBLOCK:
+            case SYNC:
+            case TRUNC:
+                /*runtime flags are essentially bitmasks; you create the value 
+                by the bitwise OR of the appropriate parameters (using the ‘|’ 
+                operator in C)*/
+                //After XOR, the value is saved back in oflags
+                oflags |= choice;
+                break;
             case VERBOSE:
                 //If verbose flag is passed in, set verbose_flag to 1. 
                 verbose_flag = 1;
