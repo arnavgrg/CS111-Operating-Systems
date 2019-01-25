@@ -323,22 +323,33 @@ int main(int argc, char* argv[]){
                 }
                 break;
             case ABORT:
-                //crash shell by creating a segmentation fault by assigning 
-                //a character to a nullptr
-                //segfault();
+                //Write to stderr and flush stderr stream
+                //fprintf(stderr, "Aborting!! Segmentation Violation!!");
+                //fflush(stderr);
+                //crash shell by raising a segmentation fault signal
                 raise(SIGSEGV);
                 break;
             case CATCH:
-                signal(atoi(optarg),catch_handler);
+                //Catch signal passed in
+                signal(atoi(optarg), catch_handler);
+                break;
+            case IGNORE:
+                //Ignore signal passed in
+                signal(atoi(optarg), SIG_IGN);
                 break;
             case DEF:
-                //Handles the signal passed the program normally would
+                /* Handles the signal passed to the program they way it 
+                normally would by default */
                 signal(atoi(optarg), SIG_DFL);
                 break;
             case PAUSE:
                 /*The pause function suspends program execution until a 
                 signal arrives whose action is either to execute a handler 
                 function, or to terminate the process.*/
+                /*If the signal causes a handler function to be executed, 
+                then pause returns. This is considered an unsuccessful 
+                return (since “successful” behavior would be to suspend 
+                the program forever), so the return value is -1. */
                 pause();
                 break;
             default:
@@ -361,16 +372,19 @@ int main(int argc, char* argv[]){
     if (commandErrorFlag){
         exit(commandErrorFlag);
     }
+
     //Exit with errorFlag
     //If error was found, this exits with 1, else exits with 0
     exit(errorFlag);
 }
 
 //custom catch signal handler
-void catch_handler(int signum){
-    if (signum) {
-        fprintf(stderr, "%d caught: %s", errno, strerror(errno));
+void catch_handler(int num) {
+    fprintf(stdout, "Reached Here");
+    fflush(stdout);
+    //Write to stderr with errno.
+        fprintf(stderr, "%d caught: %s", num, strerror(num));
         fflush(stderr);
-    }
-    exit(signum);
+        //Exit with signal number as the status
+        exit(num);
 }
