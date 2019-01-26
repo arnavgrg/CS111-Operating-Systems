@@ -4,17 +4,27 @@ EMAIL ID: arnavgrg@ucla.edu
 UID: 304911796
 */
 
+/* 
+Note: Order of includes/imports matter. I spent over 45 minutes 
+trying to determine why my signal handler was not being called,
+and why none of my signal system calls were working. I decided
+to reorder my includes since I figured maybe there was an issue
+with the dependencies of signal or maybe something was overwriting
+signal calls/preventing them from happening. This fixed my problem.
+*/
+
 //Import libraries 
 #include <stdio.h> //printf()
+#include <signal.h> //Used to raise/create signals
 #include <errno.h> //defines the integer variable errno
-#include <unistd.h> //getopt_long(), execvp(), pause()
+#include <unistd.h> //getopt_long(), execvp(), pause(), int pipe()
 #include <getopt.h> //struct for getoptlong
 #include <stdlib.h> //exit(), malloc()
 #include <fcntl.h> //open() + File access modes used for open() O_RDONLY etc.
 #include <sys/types.h> //Needed for open and creat, fork
+#include <sys/wait.h> //For wait system call
 #include <sys/stat.h> //Needed for open and creat
 #include <string.h> //String functions (if needed), atoi
-#include <signal.h> //Used to raise/create signals
 
 //Macros that can be reused throughout the program
 //Macros for OFlags                
@@ -51,7 +61,7 @@ UID: 304911796
 #define PAUSE       'k'
 
 //Function definitions
-void catch_handler(int signum);
+void catch_handler(int num); 
 
 //Main function to do all the work
 int main(int argc, char* argv[]){
@@ -75,9 +85,6 @@ int main(int argc, char* argv[]){
 
     //flag to keep track of oflags passed in
     int oflags = 0;
-    
-    //File descriptor returned when open system-call used
-    int fd = 0;
 
     //Struct containing flags that can passed through cmd
     static struct option choices[] = {
@@ -123,6 +130,10 @@ int main(int argc, char* argv[]){
         //Automatically get reset each time the while loop is called
         char* params[argc];
         int paramIndex = 0;
+        //File descriptor returned when open system-call used
+        int fd = 0;
+        //Array for piping
+        int pipefds[2]; 
 
         //If verbose flag is turned on, write commands to stdout.
         if (verbose_flag) {
@@ -252,9 +263,9 @@ int main(int argc, char* argv[]){
                 //of elements in paramIndex)
                 paramIndex++;
                 //Create a set of integers to map to the file descriptors passed in with command
-                int input = atoi(params[0]);
+                int input  = atoi(params[0]);
                 int output = atoi(params[1]);
-                int error = atoi(params[2]);
+                int error  = atoi(params[2]);
                 //Check if file desctiptors passed in are valid
                 //Check if input file descriptor is valid
                 if (input < 0 || input >= numfiles){
@@ -302,14 +313,22 @@ int main(int argc, char* argv[]){
                     close(0);
                     dup2(fileds[input],0);
                     close(fileds[input]);
-
                     close(1);
                     dup2(fileds[output],1);
                     close(fileds[output]);
-
                     close(2);
                     dup2(fileds[error],2);
                     close(fileds[error]);
+                    //Close all other file descriptors that may be writing to this 
+                    //child process so it can begin to read. This is especially true 
+                    //in the case of pipe, where the read end does not start until
+                    //all the write ends are closed.
+                    /*
+                    for (int i=3; i<numfiles;i++){
+                        if (fileds[i] != -1 && fileds[i] > 2){
+                            close(fileds[i]);
+                        }
+                    }*/
                     //Call execvp to run the command in the child process, passing in
                     //the command name as the first argument, and its parameters as
                     //as the second argument in execvp
@@ -321,6 +340,52 @@ int main(int argc, char* argv[]){
                         commandErrorFlag = 1;
                     }
                 }
+                break;
+            case PIPE:
+                //Pipe returns -1 on failure, 0 on success
+                if (pipe(pipefds) < 0) {
+                    fprintf(stderr, "Failure while piping...");
+                    fflush(stderr);
+                    errorFlag = 1;
+                    //Stop execution if failure in piping.
+                    break;
+                } 
+                //Otherwise, pipe succeeded.
+                /*The pipe system call finds the first two available positions 
+                in the process’s open file table and allocates them for the read 
+                and write ends of the pipe. */
+                //fd[0] will be the fd for the read end of pipe.
+                //fd[1] will be the fd for the write end of pipe.
+                //Check if file descriptors are valid
+                if (pipefds[0] < 0 || pipefds[1] < 0) {
+                    errorFlag = 1;
+                    fprintf(stderr,"Can't pipe! Invalid file descriptor returned \n");
+                    //Flush stderr after writing to it.
+                    fflush(stderr);
+                }
+                //Add both the file descriptors to the file descriptor array
+                fileds[numfiles] = pipefds[0]; numfiles++;
+                fileds[numfiles] = pipefds[1]; numfiles++;
+                break;
+            case CLOSE:
+                fd = atoi(optarg);
+                //Check for invalid file descriptor
+                /* Run close to see if it fails (calls close on an invalid 
+                  file descriptor) */
+                if ((close(fileds[fd])) < 0 ){
+                    //Write to stderr
+                    fprintf(stderr, "Error closing file descriptor");
+                    fflush(stderr);
+                    errorFlag = 1;
+                    break;
+                } else {
+                    //Set it to -1 to mark that it is closed.
+                    //This will create errors when the file descriptor 
+                    //is accessed in the future.
+                    fileds[fd] = -1;
+                }
+                break;
+            case WAIT:
                 break;
             case ABORT:
                 //Write to stderr and flush stderr stream
@@ -378,13 +443,11 @@ int main(int argc, char* argv[]){
     exit(errorFlag);
 }
 
-//custom catch signal handler
+//Custom catch signal handler
 void catch_handler(int num) {
-    fprintf(stdout, "Reached Here");
-    fflush(stdout);
     //Write to stderr with errno.
-        fprintf(stderr, "%d caught: %s", num, strerror(num));
-        fflush(stderr);
-        //Exit with signal number as the status
-        exit(num);
+    fprintf(stderr, "%d caught: %s", num, strerror(num));
+    fflush(stderr);
+    //Exit with signal number as the status
+    exit(num);
 }
