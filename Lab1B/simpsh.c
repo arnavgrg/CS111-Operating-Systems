@@ -86,6 +86,11 @@ int main(int argc, char* argv[]){
     //flag to keep track of oflags passed in
     int oflags = 0;
 
+    //Flag to keep track of wait signal
+    int wait_flag = 0;
+    pid_t wait_pid = 0;
+    int wstatus = 0;
+
     //Struct containing flags that can passed through cmd
     static struct option choices[] = {
         //OFlags
@@ -125,7 +130,7 @@ int main(int argc, char* argv[]){
 
     //Parse command line arguments/flags incrementally
     while ((choice = getopt_long(argc, argv, "", choices, &option_index)) != -1){
-
+        
         //Non-options array for command flag
         //Automatically get reset each time the while loop is called
         char* params[argc];
@@ -134,7 +139,10 @@ int main(int argc, char* argv[]){
         int fd = 0;
         //Array for piping
         int pipefds[2]; 
-
+        //Reset paramIndex and commandErrorFlag
+        paramIndex = 0;
+        commandErrorFlag = 0;
+        
         //If verbose flag is turned on, write commands to stdout.
         if (verbose_flag) {
             //Write flag name to output
@@ -221,11 +229,6 @@ int main(int argc, char* argv[]){
                 oflags = 0;
                 break;
             case COMMAND:
-                //Reset paramIndex
-                paramIndex = 0;
-                //Reset commandErrorFlag
-                commandErrorFlag = 0;
-                //Go through all the remaining arguments in the argv array
                 //Decrement optind by 1 so that it starts correctly at the first non-option
                 optind--;
                 //Go through all the elements in argv from the first non-option detected
@@ -234,7 +237,7 @@ int main(int argc, char* argv[]){
                     char* opt = argv[optind];
                     //Make sure opt isn't a flag by checking if the second character is a dash
                     if (strlen(opt) > 1) {
-                        if (*(opt+1) == '-'){
+                        if (*(opt+1) == '-') {
                             break;
                         }
                     }
@@ -246,7 +249,7 @@ int main(int argc, char* argv[]){
                     optind++;
                 }
                 //Ensure there are enough arguments for command to work
-                if (paramIndex < 4){
+                if (paramIndex < 4) {
                     //Write to stdout
                     fprintf(stderr, "Not enough arguments passed in for --command.");
                     fflush(stderr);
@@ -268,17 +271,17 @@ int main(int argc, char* argv[]){
                 int error  = atoi(params[2]);
                 //Check if file desctiptors passed in are valid
                 //Check if input file descriptor is valid
-                if (input < 0 || input >= numfiles){
+                if (input < 0 || input >= numfiles) {
                     //If it is invalid, set commandErrorFlag to 1
                     commandErrorFlag = 1;
                 }
                 //Check if output file descriptor is valid
-                if (output < 0 || output >= numfiles){
+                if (output < 0 || output >= numfiles) {
                     //If it is invalid, set commandErrorFlag to 1
                     commandErrorFlag = 1;
                 }
                 //Check if error file descriptor is valid
-                if (error < 0 || error >= numfiles){
+                if (error < 0 || error >= numfiles) {
                     //If it is invalid, set commandErrorFlag to 1
                     commandErrorFlag = 1;
                 }
@@ -296,7 +299,7 @@ int main(int argc, char* argv[]){
                 int pid = fork();
                 //If 0 is returned, it is the child process, otherwise it is 
                 //the parent process. If it returns -1, child process creation was unsuccessful.
-                if (pid < 0){
+                if (pid < 0) {
                     fprintf(stderr, "Error creating child process", errno, strerror(errno));
                     //Flush stderr after writing to it.
                     fflush(stderr);
@@ -307,28 +310,57 @@ int main(int argc, char* argv[]){
                 }
                 //Child process
                 if (pid == 0) {
-                    //Go through each file descriptor one by one, and ensure that
+                    //Go through each file descriptor one by one, and ensure that that they
+                    //can be processed.
                     //Close stdin, stdout and stderr for the child process, and duplicate 
                     //the file descriptors from the parent file descriptor array.
-                    close(0);
-                    dup2(fileds[input],0);
-                    close(fileds[input]);
+                    //Check to ensure there isn't a -1 in the array
+                    //created by the close flag
+                    if (fileds[input] != -1) {
+                        dup2(fileds[input],0);
+                        close(fileds[input]);
+                    } else {
+                        fprintf(stderr, "Invalid file descriptor");
+                        fflush(stderr);
+                        commandErrorFlag = 1;
+                        errorFlag = 1;
+                        break;
+                    }
                     close(1);
-                    dup2(fileds[output],1);
-                    close(fileds[output]);
+                    //Check to ensure there isn't a -1 in the array
+                    //created by the close flag
+                    if (fileds[output] != -1) {
+                        dup2(fileds[output],1);
+                        close(fileds[output]);
+                    } else {
+                        fprintf(stderr, "Invalid file descriptor");
+                        fflush(stderr);
+                        commandErrorFlag = 1;
+                        errorFlag = 1;
+                        break;
+                    }
                     close(2);
-                    dup2(fileds[error],2);
-                    close(fileds[error]);
+                    //Check to ensure there isn't a -1 in the array
+                    //created by the close flag
+                    if (fileds[error] != -1) {
+                        dup2(fileds[error],2);
+                        close(fileds[error]);
+                    } else {
+                        fprintf(stderr, "Invalid file descriptor");
+                        fflush(stderr);
+                        commandErrorFlag = 1;
+                        errorFlag = 1;
+                        break;
+                    }
                     //Close all other file descriptors that may be writing to this 
                     //child process so it can begin to read. This is especially true 
-                    //in the case of pipe, where the read end does not start until
-                    //all the write ends are closed.
-                    /*
-                    for (int i=3; i<numfiles;i++){
-                        if (fileds[i] != -1 && fileds[i] > 2){
+                    //in the case of pipe. The read end of any pipe does not start 
+                    //until all writes to that pipe are closed.
+                    for (int i=0; i<numfiles; i++) {
+                        if (fileds[i] != -1 && fileds[i] > 2) {
                             close(fileds[i]);
                         }
-                    }*/
+                    }
                     //Call execvp to run the command in the child process, passing in
                     //the command name as the first argument, and its parameters as
                     //as the second argument in execvp
@@ -369,21 +401,27 @@ int main(int argc, char* argv[]){
                 break;
             case CLOSE:
                 fd = atoi(optarg);
-                //Check for invalid file descriptor
+                //Check for file descriptor at Nth index and see if 
+                //it was previously set to -1
+                if (fileds[fd] == -1) {
+                    fprintf(stderr, "Cannot close file descriptor");
+                    fflush(stderr);
+                    errorFlag = 1;
+                    break;
+                }
                 /* Run close to see if it fails (calls close on an invalid 
                   file descriptor) */
-                if ((close(fileds[fd])) < 0 ){
+                if ((close(fileds[fd])) == -1) {
                     //Write to stderr
                     fprintf(stderr, "Error closing file descriptor");
                     fflush(stderr);
                     errorFlag = 1;
                     break;
-                } else {
-                    //Set it to -1 to mark that it is closed.
-                    //This will create errors when the file descriptor 
-                    //is accessed in the future.
-                    fileds[fd] = -1;
                 }
+                //Set it to -1 to mark that it is closed.
+                //This will create errors when the file descriptor 
+                //is accessed in the future.
+                fileds[fd] = -1;
                 break;
             case WAIT:
                 break;
@@ -392,7 +430,10 @@ int main(int argc, char* argv[]){
                 //fprintf(stderr, "Aborting!! Segmentation Violation!!");
                 //fflush(stderr);
                 //crash shell by raising a segmentation fault signal
-                raise(SIGSEGV);
+                ;
+                char *s = NULL;
+                *s = 'p';
+                //raise(SIGSEGV)
                 break;
             case CATCH:
                 //Catch signal passed in
