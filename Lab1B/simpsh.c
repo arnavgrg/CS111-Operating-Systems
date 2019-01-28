@@ -87,9 +87,9 @@ int main(int argc, char* argv[]){
     int oflags = 0;
 
     //Flag to keep track of wait signal
-    int wait_flag = 0;
+    int wait_flag  = 0;
     pid_t wait_pid = 0;
-    int wstatus = 0;
+    int wstatus    = 0;
 
     //Struct containing flags that can passed through cmd
     static struct option choices[] = {
@@ -222,8 +222,6 @@ int main(int argc, char* argv[]){
                     //Increment number of fileds in array by 1.
                     numfiles += 1;
                 }
-                /* reset fd */
-                fd = 0;
                 /* Need to reset oflags before next file-opening option is passed in
                 since we're done executing all the required open-time flags */
                 oflags = 0;
@@ -289,7 +287,7 @@ int main(int argc, char* argv[]){
                 if (commandErrorFlag) {
                     //Set errorFlag to 1
                     errorFlag = 1;
-                    fprintf(stderr,"Invalid file descriptor\n");
+                    fprintf(stderr,"Invalid file descriptors; Files descriptors not within valid range.\n");
                     //Flush stderr after writing to it.
                     fflush(stderr);
                     //Break out of switch case so that the command cannot be carried out.
@@ -304,7 +302,7 @@ int main(int argc, char* argv[]){
                     //Flush stderr after writing to it.
                     fflush(stderr);
                     //Set commandErrorFlag to 1 to mark detection of error
-                    commandErrorFlag = 1;
+                    errorFlag = 1;
                     //Break out of switch case and do not continue any further
                     break;
                 }
@@ -320,7 +318,7 @@ int main(int argc, char* argv[]){
                         dup2(fileds[input],0);
                         close(fileds[input]);
                     } else {
-                        fprintf(stderr, "Invalid file descriptor");
+                        fprintf(stderr, "Invalid file descriptor; File descriptor was closed earlier.");
                         fflush(stderr);
                         commandErrorFlag = 1;
                         errorFlag = 1;
@@ -333,7 +331,7 @@ int main(int argc, char* argv[]){
                         dup2(fileds[output],1);
                         close(fileds[output]);
                     } else {
-                        fprintf(stderr, "Invalid file descriptor");
+                        fprintf(stderr, "Invalid file descriptor; File descriptor was closed earlier.");
                         fflush(stderr);
                         commandErrorFlag = 1;
                         errorFlag = 1;
@@ -346,7 +344,7 @@ int main(int argc, char* argv[]){
                         dup2(fileds[error],2);
                         close(fileds[error]);
                     } else {
-                        fprintf(stderr, "Invalid file descriptor");
+                        fprintf(stderr, "Invalid file descriptor; File descriptor was closed earlier.");
                         fflush(stderr);
                         commandErrorFlag = 1;
                         errorFlag = 1;
@@ -401,6 +399,7 @@ int main(int argc, char* argv[]){
                 break;
             case CLOSE:
                 fd = atoi(optarg);
+                /*
                 //Check for file descriptor at Nth index and see if 
                 //it was previously set to -1
                 if (fileds[fd] == -1) {
@@ -408,7 +407,7 @@ int main(int argc, char* argv[]){
                     fflush(stderr);
                     errorFlag = 1;
                     break;
-                }
+                }*/
                 /* Run close to see if it fails (calls close on an invalid 
                   file descriptor) */
                 if ((close(fileds[fd])) == -1) {
@@ -424,6 +423,44 @@ int main(int argc, char* argv[]){
                 fileds[fd] = -1;
                 break;
             case WAIT:
+                //Close all the file descriptors
+                if (!wait_flag) {
+                    //Set wait flag to 1
+                    wait_flag = 1;
+                    for (int i=0; i<numfiles; i++){
+                        if (fileds[i] == -1){
+                            continue;
+                        } else if ((close(fileds[i]) < 0)) {
+                            fprintf(stderr, "Failed to close file.\n");
+                            fflush(stderr);
+                            errorFlag = 1;
+                        } else {
+                            fileds[i] = -1;
+                        }
+                    }
+                }
+                //waitpid returns pid of terminated child
+                //returns -1 if error
+                /*By default, waitpid() waits only for terminated children, 
+                but this behavior is modifiable via the options argument */
+                /*If wstatus is not NULL, wait() and waitpid() store status 
+                information in the int to which it points. wstatus can be 
+                inspected by:
+                    1. WIFEXITED(wstatus): returns true if the child terminated normally, 
+                    that is, by calling exit(3) or _exit(2), or by returning from main().
+                    2. WEXITSTATUS(wstatus): returns the exit status of the child. Should
+                    only be used if WIFEXITED returns true.
+                    3. WIFSIGNALED(wstatus): returns true if the child process was 
+                    terminated by a signal.
+                    4. WTERMSIG(wstatus): returns the number of the signal that caused the 
+                    child process to terminate.  This macro should be employed only if 
+                    WIFSIGNALED returned true.*/
+                //Variable to keep track of wait status
+                int wstatus;
+                pid_t childpid;
+                while ((childpid = waitpid(-1, &wstatus, 0)) != -1){
+
+                }
                 break;
             case ABORT:
                 //Write to stderr and flush stderr stream
