@@ -63,8 +63,17 @@ signal calls/preventing them from happening. This fixed my problem.
 //Function definitions
 void catch_handler(int num); 
 
+//Struct to store commands
+/*
+struct command_ {
+    int processid;
+    char* opts[20];
+    int optsLength;
+};*/
+
 //Main function to do all the work
 int main(int argc, char* argv[]){
+
     //Needed for getopt_long
     int choice;
     //Set option_index for getopt_long
@@ -77,19 +86,38 @@ int main(int argc, char* argv[]){
     int fileds[argc];
     //Variable to keep track of number of fileds in fileds array.
     int numfiles = 0;
+    
+    //Array of command_ structs that have PIDs of any child processes 
+    //and the execvp command run in the child process
+    //struct command_ commandArgs[argc];
+    //int commandArgsIndex = 0;
+
+    //Array to store PIDs
+    int pids[argc];
+    int pidCounter = 0;
+    //Array to store commands
+    char** commands[argc];
+    int commandsCounter = 0;
 
     //errorFlag
     int errorFlag = 0;
     //Separate error flag for command
-    int commandErrorFlag = 0;
+    int commandErrorFlag;
 
     //flag to keep track of oflags passed in
     int oflags = 0;
 
     //Flag to keep track of wait signal
     int wait_flag  = 0;
-    pid_t wait_pid = 0;
-    int wstatus    = 0;
+    //Max exit and signal numbers
+    int maxexitNum = 0;
+    int maxSignalNum = 0;
+    //Flag to detect if a child terminated with a signal
+    int childwithSignal = 0;
+
+    //For wait
+    int wstatus;
+    pid_t childpid;
 
     //Struct containing flags that can passed through cmd
     static struct option choices[] = {
@@ -131,6 +159,9 @@ int main(int argc, char* argv[]){
     //Parse command line arguments/flags incrementally
     while ((choice = getopt_long(argc, argv, "", choices, &option_index)) != -1){
         
+        //fprintf(stdout, "%d", errorFlag);
+        //fflush(stdout);
+
         //Non-options array for command flag
         //Automatically get reset each time the while loop is called
         char* params[argc];
@@ -196,13 +227,13 @@ int main(int argc, char* argv[]){
                 /*optarg contains argument for the given flag*/
                 /*incase of error/failure, optarg is set to null*/
                 //Open file passed in using readonly flag.
-                if (choice == READ || choice == WRITE) {
-                    fd = open(optarg, choice | oflags);
-                } else {
+                //if (choice == READ || choice == WRITE) {
+                  //  fd = open(optarg, choice | oflags);
+                //} else {
                     //Provide read and write permissions since it must 
                     //be the O_RDWR flag
-                    fd = open(optarg, choice | oflags, 0666);
-                }
+                fd = open(optarg, choice | oflags, 0666);
+                //}
                 //If not a valid file descriptor returned
                 if (fd < 0) {
                     fprintf(stderr, "Unable to open file for read or write: %d - %s\n", errno, strerror(errno));
@@ -251,10 +282,8 @@ int main(int argc, char* argv[]){
                     //Write to stdout
                     fprintf(stderr, "Not enough arguments passed in for --command.");
                     fflush(stderr);
-                    //Set flags to 1
-                    commandErrorFlag = 1;
+                    //Set flag to 1
                     errorFlag = 1;
-                    //Stop execution of command
                     break;
                 }
                 //Need to set the last element in params to NULL so 
@@ -263,23 +292,28 @@ int main(int argc, char* argv[]){
                 //Incrememnt paramIndex by 1 (also keeps track of number 
                 //of elements in paramIndex)
                 paramIndex++;
+                /*
+                for (int i=0; i<paramIndex; i++){
+                    fprintf(stdout, "%s\n", params[i]);
+                    fflush(stdout);
+                }*/
                 //Create a set of integers to map to the file descriptors passed in with command
                 int input  = atoi(params[0]);
                 int output = atoi(params[1]);
                 int error  = atoi(params[2]);
                 //Check if file desctiptors passed in are valid
                 //Check if input file descriptor is valid
-                if (input < 0 || input >= numfiles) {
+                if (input < 0 || input >= numfiles || fileds[input] < 0)  {
                     //If it is invalid, set commandErrorFlag to 1
                     commandErrorFlag = 1;
                 }
                 //Check if output file descriptor is valid
-                if (output < 0 || output >= numfiles) {
+                if (output < 0 || output >= numfiles || fileds[input] < 0) {
                     //If it is invalid, set commandErrorFlag to 1
                     commandErrorFlag = 1;
                 }
                 //Check if error file descriptor is valid
-                if (error < 0 || error >= numfiles) {
+                if (error < 0 || error >= numfiles || fileds[input] < 0) {
                     //If it is invalid, set commandErrorFlag to 1
                     commandErrorFlag = 1;
                 }
@@ -314,13 +348,13 @@ int main(int argc, char* argv[]){
                     //the file descriptors from the parent file descriptor array.
                     //Check to ensure there isn't a -1 in the array
                     //created by the close flag
+                    close(0);
                     if (fileds[input] != -1) {
                         dup2(fileds[input],0);
-                        close(fileds[input]);
+                        //close(fileds[input]);
                     } else {
                         fprintf(stderr, "Invalid file descriptor; File descriptor was closed earlier.");
                         fflush(stderr);
-                        commandErrorFlag = 1;
                         errorFlag = 1;
                         break;
                     }
@@ -329,11 +363,10 @@ int main(int argc, char* argv[]){
                     //created by the close flag
                     if (fileds[output] != -1) {
                         dup2(fileds[output],1);
-                        close(fileds[output]);
-                    } else {
+                        //close(fileds[output]);
+                    } else if (fileds[output] == -1) {
                         fprintf(stderr, "Invalid file descriptor; File descriptor was closed earlier.");
                         fflush(stderr);
-                        commandErrorFlag = 1;
                         errorFlag = 1;
                         break;
                     }
@@ -342,11 +375,10 @@ int main(int argc, char* argv[]){
                     //created by the close flag
                     if (fileds[error] != -1) {
                         dup2(fileds[error],2);
-                        close(fileds[error]);
+                        //close(fileds[error]);
                     } else {
                         fprintf(stderr, "Invalid file descriptor; File descriptor was closed earlier.");
                         fflush(stderr);
-                        commandErrorFlag = 1;
                         errorFlag = 1;
                         break;
                     }
@@ -367,9 +399,44 @@ int main(int argc, char* argv[]){
                         //Flush stderr after writing to it.
                         fflush(stderr);
                         //Set commandErrorFlag to 1 to highlight that an error was detected
-                        commandErrorFlag = 1;
+                        errorFlag = 1;
                     }
                 }
+                //Else go into the parent
+                if (pid > 0) {
+                    pids[pidCounter] = pid;
+                    pidCounter++;
+                    char** s = calloc(paramIndex, sizeof(*s));
+                    int j =0;
+                    for (int i = 3; i<paramIndex; i++) {
+                        s[j] = malloc(sizeof(char*));
+                        s[j] = params[i];
+                        j++;
+                    }
+                    commands[commandsCounter] = s;
+                    commandsCounter++;
+                }
+                break;
+            case CLOSE:
+                fd = atoi(optarg);
+                //fprintf(stdout, "%d %d %d\n", fd, fileds[fd], numfiles);
+                if (fd >= numfiles || fd < 0){
+                    fprintf(stderr, "Invalid file descriptor");
+                    fflush(stderr);
+                    errorFlag = 1;
+                    break;
+                }
+                if ((close(fileds[fd])) < 0) {
+                    //Write to stderr
+                    fprintf(stderr, "Error closing file descriptor");
+                    fflush(stderr);
+                    errorFlag = 1;
+                    break;
+                }
+                //Set it to -1 to mark that it is closed.
+                //This will create errors when the file descriptor 
+                //is accessed in the future.
+                fileds[fd] = -1;
                 break;
             case PIPE:
                 //Pipe returns -1 on failure, 0 on success
@@ -387,48 +454,26 @@ int main(int argc, char* argv[]){
                 //fd[0] will be the fd for the read end of pipe.
                 //fd[1] will be the fd for the write end of pipe.
                 //Check if file descriptors are valid
+                /*
                 if (pipefds[0] < 0 || pipefds[1] < 0) {
                     errorFlag = 1;
                     fprintf(stderr,"Can't pipe! Invalid file descriptor returned \n");
                     //Flush stderr after writing to it.
                     fflush(stderr);
-                }
+                }*/
                 //Add both the file descriptors to the file descriptor array
                 fileds[numfiles] = pipefds[0]; numfiles++;
                 fileds[numfiles] = pipefds[1]; numfiles++;
                 break;
-            case CLOSE:
-                fd = atoi(optarg);
-                /*
-                //Check for file descriptor at Nth index and see if 
-                //it was previously set to -1
-                if (fileds[fd] == -1) {
-                    fprintf(stderr, "Cannot close file descriptor");
-                    fflush(stderr);
-                    errorFlag = 1;
-                    break;
-                }*/
-                /* Run close to see if it fails (calls close on an invalid 
-                  file descriptor) */
-                if ((close(fileds[fd])) == -1) {
-                    //Write to stderr
-                    fprintf(stderr, "Error closing file descriptor");
-                    fflush(stderr);
-                    errorFlag = 1;
-                    break;
-                }
-                //Set it to -1 to mark that it is closed.
-                //This will create errors when the file descriptor 
-                //is accessed in the future.
-                fileds[fd] = -1;
-                break;
             case WAIT:
-                //Close all the file descriptors
+                wait_flag = 1;
+                /*
                 if (!wait_flag) {
                     //Set wait flag to 1
                     wait_flag = 1;
+                    //Close all the file descriptors
                     for (int i=0; i<numfiles; i++){
-                        if (fileds[i] == -1){
+                        if (fileds[i] == -1) {
                             continue;
                         } else if ((close(fileds[i]) < 0)) {
                             fprintf(stderr, "Failed to close file.\n");
@@ -438,7 +483,7 @@ int main(int argc, char* argv[]){
                             fileds[i] = -1;
                         }
                     }
-                }
+                }*/
                 //waitpid returns pid of terminated child
                 //returns -1 if error
                 /*By default, waitpid() waits only for terminated children, 
@@ -456,10 +501,53 @@ int main(int argc, char* argv[]){
                     child process to terminate.  This macro should be employed only if 
                     WIFSIGNALED returned true.*/
                 //Variable to keep track of wait status
-                int wstatus;
-                pid_t childpid;
+                wstatus = 0;
+                childpid = 0;
+                //waitpid returns the pid of the child that just terminated
                 while ((childpid = waitpid(-1, &wstatus, 0)) != -1){
-
+                    //If it is not null, wstatus and childpid were updated
+                    if (WIFEXITED(wstatus)) {
+                        fprintf(stdout, "exit %d", WEXITSTATUS(wstatus));
+                        fflush(stdout);
+                        //set maxexitNum to the maximum returned exit code
+                        if (WEXITSTATUS(wstatus) > maxexitNum){
+                            maxexitNum = WEXITSTATUS(wstatus);
+                        }
+                        for (int i=0; i<pidCounter; i++) {
+                            //Find matching pid for pidMap
+                            if ((int)childpid == pids[i]) {
+                                char** temp = commands[i];
+                                for (int j=0; temp[j]!=NULL; j++) {
+                                    fprintf(stdout, " %s", temp[j]);
+                                    fflush(stdout);
+                                }
+                            }
+                        }
+                        fprintf(stdout, "\n");
+                        fflush(stdout);
+                    } 
+                    //If it terminated by a signal, print out signal number 
+                    else if (WIFSIGNALED(wstatus)) {
+                        //set child with signal to 1
+                        childwithSignal = 1;
+                        fprintf(stdout, "signal %d", WTERMSIG(wstatus));
+                        fflush(stdout);
+                        if (WTERMSIG(wstatus) > maxSignalNum) {
+                            maxSignalNum = WTERMSIG(wstatus);
+                        }
+                        for (int i=0; i<pidCounter; i++) {
+                            //Find matching pid for pidMap
+                            if ((int)childpid == pids[i]) {
+                                char** temp = commands[i];
+                                for (int j=0; temp[j]!=NULL; j++) {
+                                    fprintf(stdout, " %s", temp[j]);
+                                    fflush(stdout);
+                                }
+                            }
+                        }
+                        fprintf(stdout, "\n");
+                        fflush(stdout);
+                    }
                 }
                 break;
             case ABORT:
@@ -511,10 +599,23 @@ int main(int argc, char* argv[]){
         close(fileds[i]);
     }
 
-    //If commandErrorFlag detected, exit with exit(1)
-    if (commandErrorFlag){
-        exit(commandErrorFlag);
+    //Free memory
+    for (int i=0; i<commandsCounter; i++){
+        free(commands[i]);
     }
+
+    //If no children terminated with signal, exit with the highest return code it waited for.
+    if (wait_flag) {
+        //If no child was terminated with a signal, terminate with maximum exit status
+        if (!childwithSignal) {
+            exit(maxexitNum);
+        } 
+        //Otherwise, if a child terminated with a signal, 
+        else if (childwithSignal) {
+            signal(maxSignalNum,SIG_DFL);
+            raise(maxSignalNum);
+        }
+    } 
 
     //Exit with errorFlag
     //If error was found, this exits with 1, else exits with 0
