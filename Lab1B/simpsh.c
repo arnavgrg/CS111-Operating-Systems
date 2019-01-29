@@ -115,7 +115,7 @@ int main(int argc, char* argv[]){
     //Flag to detect if a child terminated with a signal
     int childwithSignal = 0;
 
-    //For wait
+    //For waitpid
     int wstatus;
     pid_t childpid;
 
@@ -404,28 +404,38 @@ int main(int argc, char* argv[]){
                 }
                 //Else go into the parent
                 if (pid > 0) {
+                    //Append child's pid to pid array and increment counter by 1
                     pids[pidCounter] = pid;
                     pidCounter++;
+                    //Create enough space to hold the parameters for the execvp command
+                    //carried out by the child process
                     char** s = calloc(paramIndex, sizeof(*s));
-                    int j =0;
+                    int j = 0;
+                    //Go through all the elements in params startin with the command
                     for (int i = 3; i<paramIndex; i++) {
+                        //Create memory for the each element in the array
                         s[j] = malloc(sizeof(char*));
                         s[j] = params[i];
+                        //Increment the array 
                         j++;
                     }
+                    //Finally, add this to the commands array that helps complete
+                    //the mapping from PID to EXECVP commands and increment its counter by 1
                     commands[commandsCounter] = s;
                     commandsCounter++;
                 }
                 break;
             case CLOSE:
+                //Convert string to int
                 fd = atoi(optarg);
-                //fprintf(stdout, "%d %d %d\n", fd, fileds[fd], numfiles);
+                //Check if the file descriptor passed in is valid
                 if (fd >= numfiles || fd < 0){
                     fprintf(stderr, "Invalid file descriptor");
                     fflush(stderr);
                     errorFlag = 1;
                     break;
                 }
+                //If it valid, try closing the file descriptor
                 if ((close(fileds[fd])) < 0) {
                     //Write to stderr
                     fprintf(stderr, "Error closing file descriptor");
@@ -466,24 +476,8 @@ int main(int argc, char* argv[]){
                 fileds[numfiles] = pipefds[1]; numfiles++;
                 break;
             case WAIT:
+                //Mark wait flag to true 
                 wait_flag = 1;
-                /*
-                if (!wait_flag) {
-                    //Set wait flag to 1
-                    wait_flag = 1;
-                    //Close all the file descriptors
-                    for (int i=0; i<numfiles; i++){
-                        if (fileds[i] == -1) {
-                            continue;
-                        } else if ((close(fileds[i]) < 0)) {
-                            fprintf(stderr, "Failed to close file.\n");
-                            fflush(stderr);
-                            errorFlag = 1;
-                        } else {
-                            fileds[i] = -1;
-                        }
-                    }
-                }*/
                 //waitpid returns pid of terminated child
                 //returns -1 if error
                 /*By default, waitpid() waits only for terminated children, 
@@ -500,12 +494,13 @@ int main(int argc, char* argv[]){
                     4. WTERMSIG(wstatus): returns the number of the signal that caused the 
                     child process to terminate.  This macro should be employed only if 
                     WIFSIGNALED returned true.*/
-                //Variable to keep track of wait status
+                //Initialize wstatus and childpid to 0
                 wstatus = 0;
                 childpid = 0;
                 //waitpid returns the pid of the child that just terminated
                 while ((childpid = waitpid(-1, &wstatus, 0)) != -1){
                     //If it is not null, wstatus and childpid were updated
+                    //See if child process exited normally
                     if (WIFEXITED(wstatus)) {
                         fprintf(stdout, "exit %d", WEXITSTATUS(wstatus));
                         fflush(stdout);
@@ -513,6 +508,8 @@ int main(int argc, char* argv[]){
                         if (WEXITSTATUS(wstatus) > maxexitNum){
                             maxexitNum = WEXITSTATUS(wstatus);
                         }
+                        //Print out the corresponding command with all of its 
+                        //options
                         for (int i=0; i<pidCounter; i++) {
                             //Find matching pid for pidMap
                             if ((int)childpid == pids[i]) {
@@ -528,13 +525,18 @@ int main(int argc, char* argv[]){
                     } 
                     //If it terminated by a signal, print out signal number 
                     else if (WIFSIGNALED(wstatus)) {
-                        //set child with signal to 1
+                        //set child with signal to 1 to mark that atleast one 
+                        //child terminated with a signal instead of exiting 
+                        //normally
                         childwithSignal = 1;
                         fprintf(stdout, "signal %d", WTERMSIG(wstatus));
                         fflush(stdout);
+                        //Find the maximum signal number and save this.
                         if (WTERMSIG(wstatus) > maxSignalNum) {
                             maxSignalNum = WTERMSIG(wstatus);
                         }
+                        //Print out the corresponding command with all of its 
+                        //options
                         for (int i=0; i<pidCounter; i++) {
                             //Find matching pid for pidMap
                             if ((int)childpid == pids[i]) {
@@ -600,7 +602,7 @@ int main(int argc, char* argv[]){
     }
 
     //Free memory
-    for (int i=0; i<commandsCounter; i++){
+    for (int i=0; i<commandsCounter; i++) {
         free(commands[i]);
     }
 
@@ -612,7 +614,9 @@ int main(int argc, char* argv[]){
         } 
         //Otherwise, if a child terminated with a signal, 
         else if (childwithSignal) {
+            //Reset it to its default disposition
             signal(maxSignalNum,SIG_DFL);
+            //Raise the signal so it adds +128 to the max signal number
             raise(maxSignalNum);
         }
     } 
