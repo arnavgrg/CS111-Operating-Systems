@@ -822,7 +822,7 @@ void setEndTimes(struct rusage usage, double* endUserTime, double* endSystemTime
 
 //Output all options for profile for the given flag
 void profileOutput(char* flag, struct rusage usage, double userTime, double systemTime){
-    fprintf(stdout, "\t%s - Time: (user) %fs | (system) %fs\n", flag, userTime, systemTime);
+    fprintf(stdout, "%s - Time: (user) %fs | (system) %fs\n", flag, userTime, systemTime);
     fflush(stdout);
     /*
     fprintf(stdout, "\tUsage: (system) %fs\n", systemTime);
@@ -831,7 +831,8 @@ void profileOutput(char* flag, struct rusage usage, double userTime, double syst
     fprintf(stdout, "\tPage faults: %ld\n", usage.ru_majflt);
     fprintf(stdout, "\tBlock input operations: %ld\n", usage.ru_inblock);
     fprintf(stdout, "\tBlock output operations: %ld\n", usage.ru_oublock);
-    fprintf(stdout, "\tVoluntary context switches: %ld\n", usage.ru_nvcsw);
+    fprintf(stdout, "\tVoluntary context swsitches: %ld\n", usage.ru_nvcsw);
     fprintf(stdout, "\tInvoluntary context switches: %ld\n", usage.ru_nivcsw);
-    fflush(stdout);*/
+    fflush(stdout);
+    */
 }

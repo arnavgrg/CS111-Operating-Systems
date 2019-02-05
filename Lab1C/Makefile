@@ -12,7 +12,7 @@ clean:
 	rm -rf simpsh *.tar.gz *.o
 
 dist:
-	tar -czf lab1-304911796.tar.gz simpsh.c Makefile README
+	tar -czf lab1-304911796.tar.gz simpsh.c Makefile README test.sh test2.sh report.pdf
 
 check: test 
 
