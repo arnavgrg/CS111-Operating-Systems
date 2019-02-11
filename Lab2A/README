@@ -1,9 +1,15 @@
 NAME: ARNAV GARG
 UID: 304911796
 EMAIL ID: arnavgrg@ucla.edu
+SLIPDAYS: 0
 
 Files:
     1. lab2_add.c:
+    2. lab2_list.c:
+    3. README:
+    4. Makefile:
+    5. lab2_add.csv
+    6. lab2_list.csv
 
 Questions:
     
@@ -21,13 +27,90 @@ Questions:
         each other for longer durations/more iterations of the for loop, resulting
         in a more skewed/incorrect value for the counter. 
 
+    
     QUESTION 2.1.2 - cost of yielding:
         A. Why are the --yield runs so much slower?
         B. Where is the additional time going?
-        C. Is it possible to get valid per-operation timings if we are using the --yield option?
+        C. Is it possible to get valid per-operation timings if we are using the 
+           --yield option?
         D. If so, explain how. If not, explain why not.
     ANSWER 2.1.2:
-        As mentioned in the linux man page for sched_yield(),
+        Answers for part A and B:
+            As mentioned in the linux man page for sched_yield(), the sched_yield
+            function yields to the CPU/causes the thread to relinquish the CPU. 
+            The result is that the current thread is moved to the end of the queue
+            of threads that need to be executed, and thus forces the next thread 
+            in the queue to run. The additional time goes into context switching,
+            i.e., switching from one thread to the other thread. This is expensive,
+            because it requires the CPU to save the current thread's local memory,
+            current stack pointer, the program counter and registers. The CPU then 
+            needs to switch to the next thread in the queue, loading its previous 
+            state, memory, rsp, program counter and registers so it can execute it.
+            The sched_yield() function is called after each addition in each thread,
+            resulting in significant compounding of context-switch time. 
+        Answers for part C and D:
+            The clock_gettime() uses measures system-wide clock that measures real 
+            (i.e., wall-clock) time (as seen in the documentation for clock_gettime() 
+            when using the CLOCK_REALTIME clkid). It may be possible to estimate
+            context switch time in the case of a single-threaded program if we were
+            somehow able to determine the time for a single context-switch and also
+            assume that the time of a context-switch is fairly consistent. However,
+            in this case, multithreading results in multiple sched_yield() calls happening 
+            in parallel and often causes these calls to overlap. Therefore, it becomes 
+            nearly impossible to collect context-switch times/per-operation timings 
+            accurately. 
+    
+
+    QUESTION 2.1.3 - measurement errors:
+        A. Why does the average cost per operation drop with increasing iterations?
+        B. If the cost per iteration is a function of the number of iterations, how 
+           do we know how many iterations to run (or what the "correct" cost is)?
+    ANSWER 2.1.3:
+        Answer for A:
+            As the data suggests, when the program is single-threaded, the average
+            cost per operation (non-yielded) decreases significantly and eventually 
+            becomes constant beyond 1 million iterations. This is because the cost of 
+            creating a single thread is fairly large. Therefore, if the number of 
+            iterations are lower, it results in a larger cost per operation since it 
+            contributes more significantly to the total runtime. This is a result of how 
+            our code is structured, where clock_gettime() is called before the threads 
+            are created and only stops after pthread_join is done executing. When the 
+            number of iterations increase, the overall time increases signficantly, 
+            reducing the weightage of the time/cost needed to create a single thread, 
+            thereby reducing the average cost per operation. 
+        Answer for B:
+            Clearly, as the data suggests, the average cost per operation decreases
+            exponentially with an increase in number of iterations. For all tests
+            performed with iterations greater than 1 million, the average cost per 
+            operation seems to be a constant value of 6 nanoseconds. This suggests 
+            that 6 nanoseconds, or a value around this ballpark is the "correct" cost.
+            This is also true in case of the graph seen in lab2_add-3.png. The 
+            curve decreases exponentially, and the steepness of the curve decreases. 
+            It eventually becomes flat/stable, and this suggests that this point 
+            can therefore be a reasonable estimate of the "correct" cost.
+
+    
+    QUESTION 2.1.4 - costs of serialization:
+        A. Why do all of the options perform similarly for low numbers of threads?
+        B. Why do the three protected operations slow down as the number of threads 
+            rises?
+    ANSWER 2.1.4:
+        
+
+    QUESTION 2.2.1 - scalability of Mutex
+        A. Compare the variation in time per mutex-protected operation vs the number 
+            of threads in Part-1 (adds) and Part-2 (sorted lists).
+        B. Comment on the general shapes of the curves, and explain why they have this 
+            shape.
+        C. Comment on the relative rates of increase and differences in the shapes 
+            of the curves, and offer an explanation for these differences.
+    ANSWER 2.2.1:
 
 
-      
+    QUESTION 2.2.2 - scalability of spin locks
+        A. Compare the variation in time per protected operation vs the number of 
+            threads for list operations protected by Mutex vs Spin locks. Comment on 
+            the general shapes of the curves, and explain why they have this shape.
+        B. Comment on the relative rates of increase and differences in the shapes of 
+            the curves, and offer an explanation for these differences.
+    ANSWER 2.2.2:

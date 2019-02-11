@@ -1,6 +1,7 @@
 #NAME: ARNAV GARG
 #UID: 304911796
 #EMAIL ID: arnavgrg@ucla.edu
+#SLIPDAYS: 0
 
 .SILENT:
 
@@ -99,4 +100,31 @@ tests: build
 	./lab2_add --yield --iterations=1000 --threads=12 >> lab2_add.csv
 	./lab2_add --yield --iterations=10000 --threads=12 >> lab2_add.csv
 	./lab2_add --yield --iterations=100000 --threads=12 >> lab2_add.csv
+	# ------------- start of lab2_add-3.png tests ------------------- #
+	#For a single thread, how increase in iterations changes avg 
+	#time per operation non-yield
+	./lab2_add --iterations=10 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=20 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=50 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=100 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=250 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=500 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=750 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=1000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=2500 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=5000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=7500 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=10000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=25000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=50000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=75000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=100000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=250000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=500000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=750000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=1000000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=2500000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=5000000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=7500000 --threads=1 >> lab2_add.csv
+	# ------------- end of lab2_add-3.png tests ------------------- #
 	make clean
