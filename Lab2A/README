@@ -1,0 +1,33 @@
+NAME: ARNAV GARG
+UID: 304911796
+EMAIL ID: arnavgrg@ucla.edu
+
+Files:
+    1. lab2_add.c:
+
+Questions:
+    
+    QUESTION 2.1.1 - causing conflicts:
+        A. Why does it take many iterations before errors are seen?
+        B. Why does a significantly smaller number of iterations so seldom fail?
+    ANSWER 2.1.1:
+        Part A and B of this question have the same answer (explained below).
+        In the case of small number of iterations, by the time the next thread is 
+        created, the previous thread is done running all the required iterations. 
+        As the number of iterations increase, the thread takes significantly 
+        longer, so the next thread and current thread access the same memory
+        location parallely for a short overlapping period of time. As we increase
+        the number of threads and number of iterations, more threads overlap with
+        each other for longer durations/more iterations of the for loop, resulting
+        in a more skewed/incorrect value for the counter. 
+
+    QUESTION 2.1.2 - cost of yielding:
+        A. Why are the --yield runs so much slower?
+        B. Where is the additional time going?
+        C. Is it possible to get valid per-operation timings if we are using the --yield option?
+        D. If so, explain how. If not, explain why not.
+    ANSWER 2.1.2:
+        As mentioned in the linux man page for sched_yield(),
+
+
+      
