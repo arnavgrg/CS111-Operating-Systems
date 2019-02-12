@@ -69,9 +69,9 @@ Questions:
         Answer for A:
             As the data suggests, when the program is single-threaded, the average
             cost per operation (non-yielded) decreases significantly and eventually 
-            becomes constant beyond 1 million iterations. This is because the cost of 
-            creating a single thread is fairly large. Therefore, if the number of 
-            iterations are lower, it results in a larger cost per operation since it 
+            becomes fairly constant beyond 1 million iterations. This is because the 
+            cost of creating a single thread is fairly large. Therefore, if the number 
+            of iterations are lower, it results in a larger cost per operation since it 
             contributes more significantly to the total runtime. This is a result of how 
             our code is structured, where clock_gettime() is called before the threads 
             are created and only stops after pthread_join is done executing. When the 
@@ -82,12 +82,12 @@ Questions:
             Clearly, as the data suggests, the average cost per operation decreases
             exponentially with an increase in number of iterations. For all tests
             performed with iterations greater than 1 million, the average cost per 
-            operation seems to be a constant value of 6 nanoseconds. This suggests 
-            that 6 nanoseconds, or a value around this ballpark is the "correct" cost.
-            This is also true in case of the graph seen in lab2_add-3.png. The 
-            curve decreases exponentially, and the steepness of the curve decreases. 
-            It eventually becomes flat/stable, and this suggests that this point 
-            can therefore be a reasonable estimate of the "correct" cost.
+            operation seems to be a converge towards a constant value. This suggests 
+            a value around this ballpark is the "correct" cost. This is also true in 
+            case of the graph seen in lab2_add-3.png. The curve decreases exponentially, 
+            and the steepness of the curve decreases. It eventually becomes 
+            flat/stable, and this suggests that this point can therefore be a reasonable 
+            estimate of the "correct" cost.
 
     
     QUESTION 2.1.4 - costs of serialization:

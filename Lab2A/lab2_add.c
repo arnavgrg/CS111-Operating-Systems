@@ -53,6 +53,16 @@ static int sync_s = 0; //spin-lock
 static int sync_c = 0; //compare-and-swap
 //Static variable to use pthread_mutex
 static pthread_mutex_t x;
+//Volatile variable for spinlock
+static int splock = 0;
+
+/*-> Atomic Memory Access / atomic_sync_builtin
+An operation acting on shared memory is atomic if it completes in a single step relative to other 
+threads. When an atomic store is performed on a shared variable, no other thread can observe the 
+modification half-complete. When an atomic load is performed on a shared variable, it reads the 
+entire value as it appeared at a single moment in time. Non-atomic loads and stores do not make 
+those guarantees.
+*/
 
 //Adder function to demonstrate 
 void add(long long *pointer, long long value) {
@@ -80,20 +90,49 @@ long double updateTime(struct timespec s, struct timespec e) {
 void* start_routine() {
     switch (opt_sync_flags){
         case MUTEX:
-            //Lock
-            //Add 1 and subtract 1 num_iterations times
+            /*locks the mutex; Serves as a bottleneck of sorts since other threads 
+            wait for their turn.*/
+            /*The lock outside the for loop ensures that there are fewer context 
+            switches and faster overall run time*/
+            pthread_mutex_lock(&x);
             for (int i=0; i<num_iterations; i++) {
                 add(&counter, 1);
                 add(&counter, -1);
             }
-            //Unlock
+            pthread_mutex_unlock(&x);
+            //Unlock the mutex
             break;
         case SPINLOCK:
+            //__sync_lock_test_and_set(type *ptr, type value, ...)
+            //It writes value into *ptr, and returns the previous contents of *ptr.
+            //This builtin is not a full barrier, but rather an acquire barrier.
+            if (__sync_lock_test_and_set(&splock, 1)) {
+                for (int i=0; i<num_iterations; i++) {
+                    add(&counter, 1);
+                    add(&counter, -1);
+                }
+                __sync_lock_release(&splock);
+            }
             break;
         case CAS:
+            //__sync_val_compare_and_swap (type *ptr, type oldval type newval, ...)
+            //If the current value of *ptr is oldval, then write newval into *ptr.
+            //The val version returns the contents of *ptr before the operation
+            for (int i=0; i<num_iterations; i++){
+                if (__sync_val_compare_and_swap(&counter, counter, counter+1)){
+                    break;
+                }
+                if (__sync_val_compare_and_swap(&counter, counter, counter-1))
+                    break;
+            }
             break;
         default:
-
+            //No sync options passed in
+            for (int i=0; i<num_iterations; i++) {
+                add(&counter, 1);
+                add(&counter, -1);
+            }
+            break;
     }
     //Since it needs to return a pointer
     return NULL; 
@@ -294,6 +333,9 @@ int main(int argc, char* argv[]) {
 
     //Deallocate memory to prevent memory leaks
     free(threadids);
+
+    //Destroy mutex
+    pthread_mutex_destroy(&x);
 
     //Exit with 0 to indicate success.
     exit(0);
