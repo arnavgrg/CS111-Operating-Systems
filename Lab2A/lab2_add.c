@@ -2,7 +2,7 @@
 NAME: Arnav Garg
 EMAIL ID: arnavgrg@ucla.edu
 UID: 304911796
-SLIPDAYS: 0
+SLIPDAYS: 1
 */
 
 //LIBRARIES
@@ -22,10 +22,8 @@ SLIPDAYS: 0
 #include <string.h>
 //create, detach, join threads
 #include <pthread.h>
-//open and write (to write to .csv)
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+//Sched_yield()
+#include <sched.h>
 
 //MACROS
 #define THREADS    't'
@@ -53,7 +51,7 @@ static int sync_s = 0; //spin-lock
 static int sync_c = 0; //compare-and-swap
 //Static variable to use pthread_mutex
 static pthread_mutex_t x;
-//Volatile variable for spinlock
+//Static variable for spinlock
 static int splock = 0;
 
 /*-> Atomic Memory Access / atomic_sync_builtin
@@ -228,8 +226,7 @@ int main(int argc, char* argv[]) {
     }
 
     //Start clock
-    //CLOCK_REALTIME: System-wide clock that measures real (i.e., wall-clock) time.
-    if ((clock_gettime(CLOCK_REALTIME, &start)) == -1) {
+    if ((clock_gettime(CLOCK_MONOTONIC, &start)) == -1) {
         fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
         fflush(stderr);
         exit(1);
@@ -293,7 +290,7 @@ int main(int argc, char* argv[]) {
 
     //Stop clock
     //If error, write to stderr and exit with code 1
-    if ((clock_gettime(CLOCK_REALTIME, &end)) == -1) {
+    if ((clock_gettime(CLOCK_MONOTONIC, &end)) == -1) {
         fprintf(stderr, "Clock gettime end failed: %d - %s\n", errno, strerror(errno));
         fflush(stderr);
         exit(1);

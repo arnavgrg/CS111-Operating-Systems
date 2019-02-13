@@ -1,14 +1,14 @@
 #NAME: ARNAV GARG
 #UID: 304911796
 #EMAIL ID: arnavgrg@ucla.edu
-#SLIPDAYS: 0
+#SLIPDAYS: 1
 
 .SILENT:
 
 build:
 	#Add -pthread flag to prevent undefined reference to pthread_create error in Linux
-	gcc -g -Wall -Wextra -pthread lab2_add.c -o lab2_add
-	gcc -g -Wall -Wextra -pthread lab2_list.c -o lab2_list
+	gcc -g -Wall -Wextra -lpthread lab2_add.c -o lab2_add 
+	gcc -g -Wall -Wextra -lpthread lab2_list.c -o lab2_list SortedList.c
 
 clean:
 	rm -rf lab2_add lab2_list *.tar.gz *.o *.txt *.png
@@ -17,10 +17,11 @@ dist:
 	tar -czf lab2A-304911796.tar.gz lab2_add.c SortedList.h SortedList.c lab2_list.c Makefile README lab2_add.csv lab2_list.csv lab2_add-1.png lab2_add-2.png lab2_add-3.png lab2_add-4.png lab2_add-5.png lab2_list-1.png lab2_list-2.png lab2_list-3.png lab2_list-4.png
 
 graphs: 
-	./lab2_add.gp lab2_add.csv
-	#./lab2_list.gp lab2_list.csv
+	gnuplot lab2_add.gp
+	#gnuplot lab2_list.gp
 
 tests: build
+	# ---------------- For lab2_add.c -------------------- #
 	#For 100 iterations, add-none
 	./lab2_add --iterations=100 --threads=1 > lab2_add.csv
 	./lab2_add --iterations=100 --threads=2 >> lab2_add.csv

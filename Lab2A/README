@@ -1,15 +1,15 @@
 NAME: ARNAV GARG
 UID: 304911796
 EMAIL ID: arnavgrg@ucla.edu
-SLIPDAYS: 0
+SLIPDAYS: 1
 
 Files:
-    1. lab2_add.c:
-    2. lab2_list.c:
-    3. README:
-    4. Makefile:
-    5. lab2_add.csv
-    6. lab2_list.csv
+    - lab2_add.c:
+    - lab2_list.c:
+    - README:
+    - Makefile:
+    - lab2_add.csv
+    - lab2_list.csv
 
 Questions:
     
