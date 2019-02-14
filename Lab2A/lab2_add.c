@@ -104,13 +104,13 @@ void* start_routine() {
             //__sync_lock_test_and_set(type *ptr, type value, ...)
             //It writes value into *ptr, and returns the previous contents of *ptr.
             //This builtin is not a full barrier, but rather an acquire barrier.
-            if (__sync_lock_test_and_set(&splock, 1)) {
-                for (int i=0; i<num_iterations; i++) {
-                    add(&counter, 1);
-                    add(&counter, -1);
-                }
-                __sync_lock_release(&splock);
+            while (__sync_lock_test_and_set(&splock, 1));
+            //Inside critical section
+            for (int i=0; i<num_iterations; i++) {
+                add(&counter, 1);
+                add(&counter, -1);
             }
+            __sync_lock_release(&splock);
             break;
         case CAS:
             //__sync_val_compare_and_swap (type *ptr, type oldval type newval, ...)

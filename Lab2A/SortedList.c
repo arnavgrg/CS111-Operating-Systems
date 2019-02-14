@@ -52,10 +52,6 @@ void SortedList_insert(SortedList_t *list, SortedListElement_t *element){
     l->next = element; 
     //Go to curr and update its previous pointer to point to the newly inserted element
     element->next->prev = element;
-    /*
-    This is what it looks like after insertion
-          ---->l--->element--->curr--->
-    */
 }
 
 //SortedList_delete ... remove an element from a sorted list

@@ -35,8 +35,7 @@ SLIPDAYS: 1
 #define MUTEX      'm'
 #define SPINLOCK   's'
 
-//YIELD BASED MACROS
-/*
+/*YIELD BASED MACROS
 #define	INSERT_YIELD	0x01
 #define	DELETE_YIELD	0x02
 #define	LOOKUP_YIELD	0x04
@@ -44,7 +43,8 @@ ID_YIELD - Or 0x01 with 0x02
 IL_YIELD - Or 0x01 with 0x04
 DL_YIELD - Or 0x02 with 0x04
 IDL_YIELD - Or 0x01 with 0x02 and with 0x04
-This works because they are bit masks
+This works because they are bit masks, so we can just or them like we
+did with the runtime open flags in Lab1ABC.
 */
 #define ID_YIELD   0x03  
 #define IL_YIELD   0x05  
@@ -137,11 +137,12 @@ void validateDelete(int index) {
 }
 
 void* start_routine(void* val) {
+    //Set the bounds for each thread so that work doesn't overlap
     int start_pos = *((int *) val);
-    int upper_bound = start_pos + num_iterations;
+    int end_pos = start_pos + num_iterations;
 
-    //Insert n_elements
-    for (int i=0; i<upper_bound; i++) {
+    //Insert elements
+    for (int i=start_pos; i<end_pos; i++) {
         //If mutex flag is 1
         if (sync_m){
             pthread_mutex_lock(&x);
@@ -150,10 +151,10 @@ void* start_routine(void* val) {
         } 
         //If spinlock flag
         else if (sync_s){
-            if (__sync_lock_test_and_set(&splock, 1)) {
-                SortedList_insert(&list, &array_elements[i]);
-                __sync_lock_release(&splock);
-            }
+            while (__sync_lock_test_and_set(&splock, 1));
+            //Inside Critical Section
+            SortedList_insert(&list, &array_elements[i]);
+            __sync_lock_release(&splock);
         } 
         //No sync flags were passed
         else
@@ -161,18 +162,41 @@ void* start_routine(void* val) {
     }
 
     //Find the length of the list
-    int ret = SortedList_length(&list);
+    int length = 0;
+    if (sync_m){
+        pthread_mutex_lock(&x);
+        length = SortedList_length(&list);
+        pthread_mutex_unlock(&x);
+    } else if (sync_s){
+        while (__sync_lock_test_and_set(&splock, 1));
+        //Inside Critical Section
+        length = SortedList_length(&list);
+        __sync_lock_release(&splock);
+    } else 
+        length = SortedList_length(&list);
     //If this value is 0, no elements were inserted
-    if (ret <= 0) {
+    if (length <= 0) {
         fprintf(stderr, "List is corrupted\n");
         fflush(stderr);
         exit(2);
     }
+
     //Delete each of the keys
-    for (int i=0; i<upper_bound; i++){
-        //Helper method deletes the element as well
-        validateDelete(i);
+    for (int i=start_pos; i<end_pos; i++) {
+        if (sync_m){
+            pthread_mutex_lock(&x);
+            validateDelete(i);
+            pthread_mutex_unlock(&x);
+        } else if (sync_s) {
+            while (__sync_lock_test_and_set(&splock, 1));
+            //Inside critical section
+            validateDelete(i);
+            __sync_lock_release(&splock);
+        } else 
+            //Helper method deletes the element as well
+            validateDelete(i);
     }
+
     //Need to return null since the function needs to return a pointer
     return NULL;
 }
@@ -251,8 +275,9 @@ int main(int argc, char* argv[]) {
                 //Get first argument
                 opt_sync = optarg[0];
                 //Check if it is one of the valid arguments
+                //Need to write it like this because of DeMorgan's Rule
                 if ((opt_sync != SPINLOCK) && (opt_sync != MUTEX)){
-                    fprintf(stderr, "Invalid arguments for --sync flag");
+                    fprintf(stderr, "Invalid arguments for --sync flag\n");
                     fflush(stderr);
                     exit(2);
                 }
@@ -260,7 +285,7 @@ int main(int argc, char* argv[]) {
                 if (opt_sync == MUTEX){
                     sync_m = 1;
                     if ((pthread_mutex_init(&x, NULL)) != 0) {
-                        fprintf(stderr, "Failed to initialize mutex");
+                        fprintf(stderr, "Failed to initialize mutex\n");
                         fflush(stderr);
                         exit(1);
                     }
@@ -302,9 +327,8 @@ int main(int argc, char* argv[]) {
     for (int i=0, pos=0; i < num_threads; i++, pos += num_iterations) {
         //If thread creation fails, write error message, deallocate memory and exit with code 1
         //If thread creation is successful, call start_routine
+        //Note down start position for each of the threads so they don't conflict/overlap
         start_position[i] = pos;
-        printf("Created Thread %d\n", i);
-        fflush(stdout);
         if (pthread_create(&threadids[i], NULL, start_routine, (void*) &start_position[i]) != 0) {
             fprintf(stderr, "Error creating pthreads. Deallocating saved memory.\n");
             fflush(stderr);
@@ -319,11 +343,9 @@ int main(int argc, char* argv[]) {
 
     //Join each of the threads after they're done executing
     for (int i=0; i < num_threads; i++) {
-        printf("Joining Thread %d\n", i);
-        fflush(stdout);
         //If thread joining fails 
         if (pthread_join(threadids[i], NULL) != 0) {
-            fprintf(stderr, "Error joining threads and terminating. Deallocating saved memory");
+            fprintf(stderr, "Error joining threads and terminating. Deallocating saved memory\n");
             fflush(stderr);
             //Deallocate stored memory at threadids
             free(threadids);
@@ -367,19 +389,19 @@ int main(int argc, char* argv[]) {
         default:              strcat(str, "-none");      break;
     }
 
-    if (sync_flag){
+    if (sync_flag) {
         if (sync_m)
             strcat(str, "-m");
         else 
             strcat(str, "-s");
-    } else {
-        strcat(str, "-none");
-    }
+    }   else 
+            strcat(str, "-none");
 
     //Calculate difference in time and store it in double accum
     long long timing = updateTime(start, end);
-    //Calculate average time per operation 
+    //Calculate total number of operations
     long long ops = num_elements*3;
+    //Calculate average time per operation
     long long avgops = timing/ops;
 
     //Print .csv output line
@@ -394,5 +416,5 @@ int main(int argc, char* argv[]) {
     //Free start positions array
     free(start_position);
     //Exit successfully so return 0
-    exit(0);    
+    exit(0);
 }
