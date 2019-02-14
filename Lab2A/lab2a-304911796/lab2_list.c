@@ -2,7 +2,7 @@
 NAME: ARNAV GARG
 UID: 304911796
 EMAIL: arnavgrg@ucla.edu
-SLIPDAYS: 2
+SLIPDAYS: 3
 */
 
 //LIBRARIES
@@ -400,7 +400,7 @@ int main(int argc, char* argv[]) {
     //Calculate difference in time and store it in double accum
     long long timing = updateTime(start, end);
     //Calculate total number of operations
-    long long ops = num_elements*3;
+    long long ops = num_threads*num_iterations*3;
     //Calculate average time per operation
     long long avgops = timing/ops;
 
