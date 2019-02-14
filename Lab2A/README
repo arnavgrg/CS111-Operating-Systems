@@ -1,15 +1,94 @@
 NAME: ARNAV GARG
 UID: 304911796
 EMAIL ID: arnavgrg@ucla.edu
-SLIPDAYS: 1
+SLIPDAYS: 2
 
 Files:
+
     - lab2_add.c:
+            This is a C program with the capability of multithreading that implements an 
+            addition function with a shared variable. The program has capabilities of 
+            displaying the effects and existence of race conditions, and also explores 
+            scheduling and synchronization mechanisms to solve these race conditions. 
+    
+    - lab2_add.csv: 
+            This contains the output of all the tests in the Makefile that use lab2_add.c 
+            to display the existence of race conditions, as well as the ability to use
+            synchronization methods to stop race conditions from occuring. 
+    
+    - lab2_add-1.png:
+            A plot/chart that displays the number of threads and iterations required to 
+            generate a failure (with and without yields).
+
+	- lab2_add-2.png:
+            A plot/chart that displays average time per operation with and without yields.
+
+    - lab2_add-3.png:
+            A plot/chart that displays the average time per (single threaded) operation 
+            vs. the number of iterations.
+
+    - lab2_add-4.png:
+            A plot/chart that displays number of threads and iterations that can run successfully 
+            with yields under each of the synchronization options.
+
+    - lab2_add-5.png: 
+            A plot/chart that displays the average time per (protected) operation vs. the number of 
+            threads.
+
     - lab2_list.c:
-    - README:
-    - Makefile:
-    - lab2_add.csv
+            This is a C program that tests a shared sorted linked list. It has capabilities
+            to multithread to show the existence of race conditions, as well as the 
+            ability to demonstrate scheduling and synchronization mechanisms to get rid 
+            of any existing race conditions.
+
     - lab2_list.csv
+            This contains the output of all the tests in the Makefile that use lab2_list.c 
+            to display the existence of race conditions, as well as the ability to use 
+            synchronization methods to stop race conditions from occuring. 
+    
+    - lab2_list-1.png:
+            A plot/chart that displays the average time per (single threaded) unprotected 
+            operation vs. number of iterations (illustrating the correction of the per-operation 
+            cost for the list length).
+
+    - lab2_list-2.png:
+            A plot/chart that displays the number of threads and iterations required to 
+            generate a failure (with and without yields).
+            
+    - lab2_list-3.png: 
+            A plot/chart that displays the number of iterations that can run (protected) without 
+            failure.
+            
+    - lab2_list-4.png:
+            A plot/chart that displays the length-adjusted cost per operation vs the number of 
+            threads for the various synchronization options.
+
+    - SortedList.h && SortedList.c
+            Together, they contain function definitions and function implementations to 
+            insert, delete or search for an element in a doubly linked list, as well as 
+            calculate the length of sorted linked list.
+
+    - lab2_add.gp:
+            This is a graphing module that uses gnuplot to create 5 different graphs for 
+            output in lab2_add.csv, namely, lab2_add-1.png, lab2_add-2.png, lab2_add-3.png, 
+            lab2_add-4.png and lab2_add-5.png that contain different charts about 
+            usage/timing statistics.
+    
+    - lab2_list.gp:
+            This is a graphing module that uses gnuplot to create 5 different graphs for 
+            output in lab2_list.csv, namely, lab2_list-1.png, lab2_list-2.png, lab2_list-3.png, 
+            and  lab2_list-4.png that contain different charts about usage/timing statistics.
+
+    - README:
+            The README file contains a description of the all the files in the compressed
+            tarball, as well as answers to questions for Part-1 and Part-2 of Lab2A. 
+    
+    - Makefile:
+            The Makefile supports build, tests, graphs, clean and dist. Build acts like 
+            make default, tests run tests for lab2_add.c and lab2_list.c, graphs takes 
+            the .csv files produced by tests and produces 9 different charts. Clean 
+            removes all txt, object, png and .tar.gz files. Dist creates the compressed 
+            tarball.
 
 Questions:
     
@@ -95,7 +174,22 @@ Questions:
         B. Why do the three protected operations slow down as the number of threads 
             rises?
     ANSWER 2.1.4:
-        
+        ANSWER A:
+            With a smaller number of threads, fewer number of locks/unlocks occur,
+            resulting in a decrease in cases where multiple threads try to get into the 
+            critical section. In other words, there are fewer instances where race 
+            conditions occur. If fewer threads compete/wait to get into the 
+            critical section, then only a small amount of additional time is 
+            added to the total runtime for the instances where the threads actually
+            have to wait. Therefore, they all perform similarly for low number of
+            threads.
+        ANSWER B:
+            This is the inverse of the reason above. As the number of threads increase,
+            there are more instances when threads compete to execute code in the critical
+            section. This results in increased amount of waiting time per thread on 
+            average and leads to each of the operations taking longer (and therefore, 
+            slowing down as the number of threads increase).
+
 
     QUESTION 2.2.1 - scalability of Mutex
         A. Compare the variation in time per mutex-protected operation vs the number 
@@ -105,6 +199,18 @@ Questions:
         C. Comment on the relative rates of increase and differences in the shapes 
             of the curves, and offer an explanation for these differences.
     ANSWER 2.2.1:
+        ANSWER A:
+            The main difference in seen in the cost per mutex-protected operation.
+            The data suggests that as the number of threads increase, the per 
+            mutex-protected operation cost increases at a much higher/faster rate
+            in Part-2 as compared to Part-1. While the number of operations done are 
+            3 times as many in Part-2 as compared to Part-1, the per mutex-operation 
+            cost is significantly higher for Part-2 because each list 
+            operations in Part-2 is significantly more expensive than the add 
+            operations in Part-1. 
+        ANSWER B:
+
+        ANSWER C:
 
 
     QUESTION 2.2.2 - scalability of spin locks
@@ -114,3 +220,6 @@ Questions:
         B. Comment on the relative rates of increase and differences in the shapes of 
             the curves, and offer an explanation for these differences.
     ANSWER 2.2.2:
+        ANSWER A:
+
+        ANSWER B:
