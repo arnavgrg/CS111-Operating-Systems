@@ -132,7 +132,20 @@ Questions:
 	C. How is it possible for the wait time per operation to go up faster (or higher) than the 
            completion time per operation?
     ANSWER 2.3.3:
-        A. 
+        A. Since more threads are competing for the critical section, there is a higher likelihood 
+	   that the section is currently locked. Therefore, each thread will have to wait for longer, 
+	   on average, for its turn. Additionally, when the lock does become available, there is a 
+	   larger chance that threads line up in a queue to wait for their turn to execute the 
+	   critical section. This also increases the average lock-wait time.
+	B. Since threads spend more time waiting for locks to free up, the overall completion time
+	  increases. In other words, since there are more chances of contention, there is an 
+	   increase in overall completion time. However, this increases less sharply than the line for
+	  lock-wait time because the time per operation (insert, lookup, delete) is constant. 
+	C. Total completion time only factors in time for the parent thread and accounts for the
+	    wall time for the entire operation. However, each thread measures its own wait-time during 
+	   lock contentions. This wait time keeps increasing for the total number of lock contentions for 
+	   each thread. Therefore, since there are multiple threads contributing towards wait time per 
+	   operation, this value can be greater than the completion time per operation. 
 
     
     QUESTION 2.3.4 - Performance of Partitioned Lists
@@ -144,6 +157,22 @@ Questions:
            equivalent to the throughput of a single list with fewer (1/N) threads. Does this appear 
            to be true in the above curves? If not, explain why not.
     ANSWER 2.3.4:
+    	A. The performance of the synchronized methods increases with an increase in the number of lists. 
+	   This is because as we increase the number of lists, each list will contain fewer elements. This 
+	   ensures that the possibilities of contention for a lock descreases in comparison to the case with
+	   a single list. 
+	B. The graphs show that the lines for larger number of lists tend to level off as the number of 
+	   threads increase. Once the number of lists equals the total number of threads, there will be little
+	   to almost no chances of lock contention. Therefore, creating additional lists will no longer 
+	   impact/improve performance. We can also conclude that throughput is therefore directly dependent on 
+	   the CPU and the maximum number of threads that can run on a CPU. If number of lists > 2 * number of 
+	   threads, then there is no significant gain in performance.
+	C. No, this does not appear to be true. This is because partitioning a list results in each sublist 
+	   being significantly smaller. Therefore, less time is spent in the critical section/locked section
+	   because there are fewer elements to perform list operations on. Therefore, the possibilitiy of 
+	   contention is decreased since each thread will probably finish executing a critical section by the
+	   time the next thread wants to get into the critical section. Reducing the number of threads 
+	   also decreases the posibility of contention and wait time per thread. 
 
 
 External References:
