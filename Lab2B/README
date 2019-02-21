@@ -103,6 +103,18 @@ Questions:
         A. From the output seen in profile.out file, it is clear that the program spends 
            most of its time in the spin-lock call while loop.
                 while (__sync_lock_test_and_set(&splock, 1));
+           The code for lab2_list.c was updated after the initial run so that pthread methods are 
+           further split into helper functions that carry out different list operations. The initial
+           profile for --list=start_routine suggests that majority of the time is spent within the 
+           l_insert and l_delete methods. 
+           I added 2 more calls to pprof in my Makefile to profile both of these functions:
+                1. -pprof --list=l_insert ./lab2_list ./raw.gperf >> profile.out 2>/dev/null
+                2. -pprof --list=l_delete ./lab2_list ./raw.gperf >> profile.out 2>/dev/null
+           The profile for both of these function calls are also appended to profile.out.
+           The data from the profile for both of these functions suggests that majority of the time 
+           is spent on the while (__sync_lock_test_and_set(&l->s_lock, 1)); method call, which 
+           is consistent with the older/earlier implementation of Lab2B seen at the beginning of the 
+           response for this subpart of question 2.3.2.
         B. Given a larger number of threads, there are more instances when the threads 
            compete with each other for the critical section. In other words, there is a higher
            chance that the lock is unavailable. Therefore, the remaining threads will 

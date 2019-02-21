@@ -11,18 +11,14 @@
 #	5. # operations performed (threads x iterations x (ins + lookup + delete))
 #	6. run time (ns)
 #	7. run time per operation (ns)
+#    8. average wait for lock (ns)
 #
 # output:
-#	lab2b_1.png ... cost per operation vs threads and iterations
-#	lab2b_2.png ... threads and iterations that run (un-protected) w/o failure
+#	lab2b_1.png ... Throughput vs Synchronization (Mutex and Spin-lock)
+#	lab2b_2.png ... Avg. wait-for-lock time && Avg. time per operation vs Threads (Mutex)
 #	lab2b_3.png ... threads and iterations that run (protected) w/o failure
 #	lab2b_4.png ... cost per operation vs number of threads
-#   lab2b_5.png ... 
-#
-# Note:
-#	Managing data is simplified by keeping all of the results in a single
-#	file.  But this means that the individual graphing commands have to
-#	grep to select only the data they want.
+#    lab2b_5.png ... 
 #
 
 # general plot parameters
@@ -37,31 +33,29 @@ set xlabel "Threads"
 set logscale x 2
 set xrange [0.75:]
 set output 'lab2b_1.png'
-
-# grep out only single threaded, un-protected, non-yield results
 plot \
-     "< grep -E \"list-none-m,[0-9]+,1000,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
+     "< grep -E \"list-none-m,[0-9]+,1000,1,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
 	title 'Mutex' with linespoints lc rgb 'red', \
-     "< grep -E \"list-none-s,[0-9]+,1000,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
+     "< grep -E \"list-none-s,[0-9]+,1000,1,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
 	title 'Spin-lock' with linespoints lc rgb 'blue'
 
 ##############################################################################################
 
 # Lab2B_2:
-set title "Lab2B-2: Throughput vs Synchronization (Mutex and Spin-lock)"
-set ylabel "Throughput"
+set title "Lab2B-2: Avg. wait-for-lock time && Avg. time per operation vs Threads (Mutex)"
+set ylabel "Time"
 set logscale y 10
 set xlabel "Threads"
 set logscale x 2
 set xrange [0.75:]
-set output 'lab2b_1.png'
-
-# grep out only single threaded, un-protected, non-yield results
+set output 'lab2b_2.png'
 plot \
-     "< grep -E \"list-none-m,[0-9]+,1000,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
-	title 'Mutex' with linespoints lc rgb 'red', \
-     "< grep -E \"list-none-s,[0-9]+,1000,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
-	title 'Spin-lock' with linespoints lc rgb 'blue'
+     "< grep -E \"list-none-m,[0-9]+,1000,1,\" lab2b_list.csv" using ($2):($8) \
+	title 'Avg. wait-for-lock time' with linespoints lc rgb 'blue', \
+     "< grep -E \"list-none-m,[0-9]+,1000,1,\" lab2b_list.csv" using ($2):($7) \
+	title 'Avg. time per operation' with linespoints lc rgb 'red'
+
+##############################################################################################
 
 
 # set title "List-2: Unprotected Threads and Iterations that run without failure"

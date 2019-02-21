@@ -18,6 +18,8 @@ profile:
 	-CPUPROFILE=./raw.gperf ./lab2_list --sync=s --threads=12 --iterations=1000 1>/dev/null 2>/dev/null
 	-pprof --text ./lab2_list ./raw.gperf >profile.out 2>/dev/null
 	-pprof --list=start_routine ./lab2_list ./raw.gperf >> profile.out 2>/dev/null
+	-pprof --list=l_insert ./lab2_list ./raw.gperf >> profile.out 2>/dev/null
+	-pprof --list=l_delete ./lab2_list ./raw.gperf >> profile.out 2>/dev/null
 	rm -f ./raw.gperf 1>/dev/null 2>/dev/null
 
 dist: graphs
