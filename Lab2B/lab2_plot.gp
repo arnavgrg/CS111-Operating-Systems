@@ -11,15 +11,18 @@
 #	5. # operations performed (threads x iterations x (ins + lookup + delete))
 #	6. run time (ns)
 #	7. run time per operation (ns)
-#    8. average wait for lock (ns)
+#       8. average wait for lock (ns)
 #
 # output:
 #	lab2b_1.png ... Throughput vs Synchronization (Mutex and Spin-lock)
 #	lab2b_2.png ... Avg. wait-for-lock time && Avg. time per operation vs Threads (Mutex)
-#	lab2b_3.png ... threads and iterations that run (protected) w/o failure
-#	lab2b_4.png ... cost per operation vs number of threads
-#    lab2b_5.png ... 
+#	lab2b_3.png ... Succesful iterations for synchronization methods
+#	lab2b_4.png ... Compares performance of a paritioned list for mutex operations
+#       lab2b_5.png ... Compares performance of a paritioned list for spinlock operations
 #
+
+#Define a variable that represents number of nanoseconds in a second
+NS = 1000000000
 
 # general plot parameters
 set terminal png
@@ -34,9 +37,9 @@ set logscale x 2
 set xrange [0.75:]
 set output 'lab2b_1.png'
 plot \
-     "< grep -E \"list-none-m,[0-9]+,1000,1,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
+     "< grep -E \"list-none-m,[0-9]+,1000,1,\" lab2b_list.csv" using ($2):(NS/($7)) \
 	title 'Mutex' with linespoints lc rgb 'red', \
-     "< grep -E \"list-none-s,[0-9]+,1000,1,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
+     "< grep -E \"list-none-s,[0-9]+,1000,1,\" lab2b_list.csv" using ($2):(NS/($7)) \
 	title 'Spin-lock' with linespoints lc rgb 'blue'
 
 ##############################################################################################
@@ -57,79 +60,61 @@ plot \
 
 ##############################################################################################
 
+# Lab2B_3:
+set title "Lab2B-3: Succesful iterations for synchronization methods"
+set key right top
+set ylabel "Successful Iterations"
+set logscale y 10
+set xlabel "Threads"
+set logscale x 2
+set xrange [0.75:]
+set output 'lab2b_3.png'
+plot \
+     "< grep -E \"list-id-none,[0-9]+,[0-9]+,4,\" lab2b_list.csv" using ($2):($3) \
+	title 'Unprotected (no synchronization)' with linespoints lc rgb 'blue', \
+     "< grep -E \"list-id-m,[0-9]+,[0-9]+,4,\" lab2b_list.csv" using ($2):($3) \
+	title 'Mutex Iterations' with linespoints lc rgb 'green', \
+     "< grep -E \"list-id-m,[0-9]+,[0-9]+,4,\" lab2b_list.csv" using ($2):($3) \
+	title 'Spinlock Iterations' with linespoints lc rgb 'red'
 
-# set title "List-2: Unprotected Threads and Iterations that run without failure"
-# set xlabel "Threads"
-# set logscale x 2
-# set xrange [0.75:]
-# set ylabel "Successful Iterations"
-# set logscale y 10
-# set output 'lab2_list-2.png'
-# # note that unsuccessful runs should have produced no output
-# plot \
-#      "< grep list-none-none lab2_list.csv" using ($2):($3) \
-# 	title 'w/o yields' with points lc rgb 'green', \
-#      "< grep list-i-none lab2_list.csv" using ($2):($3) \
-# 	title 'yield=i' with points lc rgb 'red', \
-#      "< grep list-d-none lab2_list.csv" using ($2):($3) \
-# 	title 'yield=d' with points lc rgb 'violet', \
-#      "< grep list-il-none lab2_list.csv" using ($2):($3) \
-# 	title 'yield=il' with points lc rgb 'orange', \
-#      "< grep list-dl-none lab2_list.csv" using ($2):($3) \
-# 	title 'yield=dl' with points lc rgb 'blue'
-     
-# set title "List-3: Protected Iterations that run without failure"
-# unset logscale x
-# set xrange [0:5]
-# set xlabel "Yields"
-# set xtics("" 0, "yield=i" 1, "yield=d" 2, "yield=il" 3, "yield=dl" 4, "" 5)
-# set ylabel "successful iterations"
-# set logscale y 10
-# set output 'lab2_list-3.png'
-# plot \
-#     "< grep 'list-i-none,12,' lab2_list.csv" using (1):($3) \
-# 	with points lc rgb "red" title "unprotected, T=12", \
-#     "< grep 'list-d-none,12,' lab2_list.csv" using (2):($3) \
-# 	with points lc rgb "red" title "", \
-#     "< grep 'list-il-none,12,' lab2_list.csv" using (3):($3) \
-# 	with points lc rgb "red" title "", \
-#     "< grep 'list-dl-none,12,' lab2_list.csv" using (4):($3) \
-# 	with points lc rgb "red" title "", \
-#     "< grep 'list-i-m,12,' lab2_list.csv" using (1):($3) \
-# 	with points lc rgb "green" title "Mutex, T=12", \
-#     "< grep 'list-d-m,12,' lab2_list.csv" using (2):($3) \
-# 	with points lc rgb "green" title "", \
-#     "< grep 'list-il-m,12,' lab2_list.csv" using (3):($3) \
-# 	with points lc rgb "green" title "", \
-#     "< grep 'list-dl-m,12,' lab2_list.csv" using (4):($3) \
-# 	with points lc rgb "green" title "", \
-#     "< grep 'list-i-s,12,' lab2_list.csv" using (1):($3) \
-# 	with points lc rgb "blue" title "Spin-Lock, T=12", \
-#     "< grep 'list-d-s,12,' lab2_list.csv" using (2):($3) \
-# 	with points lc rgb "blue" title "", \
-#     "< grep 'list-il-s,12,' lab2_list.csv" using (3):($3) \
-# 	with points lc rgb "blue" title "", \
-#     "< grep 'list-dl-s,12,' lab2_list.csv" using (4):($3) \
-# 	with points lc rgb "blue" title ""
-# #
-# # "no valid points" is possible if even a single iteration can't run
-# #
+##############################################################################################
 
-# # unset the kinky x axis
-# unset xtics
-# set xtics
+# Lab2B_4:
+set title "Lab2B-4: Performance of a paritioned list for mutex operations"
+#set key right top
+set ylabel "Throughput"
+set logscale y 10
+set xlabel "Threads"
+set logscale x 2
+set xrange [0.75:]
+set output 'lab2b_4.png'
+plot \
+     "< grep -E \"list-none-m,[0-9]+,1000,1,\" lab_2b_list.csv" using ($2):(NS/($7)) \
+	title '1 list' with linespoints lc rgb 'orange', \
+     "< grep -E \"list-none-m,[0-9]+,1000,4," lab_2b_list.csv" using ($2):(NS/($7)) \
+	title '4 lists' with linespoints lc rgb 'red', \
+     "< grep -E \"list-none-m,[0-9]+,1000,8," lab_2b_list.csv" using ($2):(NS/($7)) \
+	title '8 lists' with linespoints lc rgb 'green', \
+     "< grep -E \"list-none-m,[0-9]+,1000,16," lab_2b_list.csv" using ($2):(NS/($7)) \
+	title '16 lists' with linespoints lc rgb 'blue'
 
-# set title "List-4: Scalability of synchronization mechanisms"
-# set xlabel "Threads"
-# set logscale x 2
-# unset xrange
-# set xrange [0.75:]
-# set ylabel "Length-adjusted cost per operation(ns)"
-# set logscale y
-# set output 'lab2_list-4.png'
-# set key left top
-# plot \
-#      "< grep -e 'list-none-m,[0-9]*,1000,' lab2_list.csv" using ($2):($7)/(($3)/4) \
-# 	title '(adjusted) list w/mutex' with linespoints lc rgb 'blue', \
-#      "< grep -e 'list-none-s,[0-9]*,1000,' lab2_list.csv" using ($2):($7)/(($3)/4) \
-# 	title '(adjusted) list w/spin-lock' with linespoints lc rgb 'green'
+##############################################################################################
+
+# Lab2B_5:
+set title "Lab2B-5: Performance of a paritioned list for spinlock operations"
+#set key right top
+set ylabel "Throughput"
+set logscale y 10
+set xlabel "Threads"
+set logscale x 2
+set xrange [0.75:]
+set output 'lab2b_5.png'
+plot \
+     "< grep -E \"list-none-s,[0-9]+,1000,1,\" lab_2b_list.csv" using ($2):(NS/($7)) \
+	title '1 list' with linespoints lc rgb 'orange', \
+     "< grep -E \"list-none-s,[0-9]+,1000,4," lab_2b_list.csv" using ($2):(NS/($7)) \
+	title '4 lists' with linespoints lc rgb 'red', \
+     "< grep -E \"list-none-s,[0-9]+,1000,8," lab_2b_list.csv" using ($2):(NS/($7)) \
+	title '8 lists' with linespoints lc rgb 'green', \
+     "< grep -E \"list-none-s,[0-9]+,1000,16," lab_2b_list.csv" using ($2):(NS/($7)) \
+	title '16 lists' with linespoints lc rgb 'blue'
