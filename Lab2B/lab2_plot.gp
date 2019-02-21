@@ -29,8 +29,8 @@
 set terminal png
 set datafile separator ","
 
-# how many threads/iterations we can run without failure (w/o yielding)
-set title "Lab2B_1: Throughput vs Synchronization (Mutex and Spin-lock)"
+# Lab2B_1:
+set title "Lab2B-1: Throughput vs Synchronization (Mutex and Spin-lock)"
 set ylabel "Throughput"
 set logscale y 10
 set xlabel "Threads"
@@ -41,9 +41,28 @@ set output 'lab2b_1.png'
 # grep out only single threaded, un-protected, non-yield results
 plot \
      "< grep -E \"list-none-m,[0-9]+,1000,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
-	title 'w/ Mutex' with linespoints lc rgb 'red', \
+	title 'Mutex' with linespoints lc rgb 'red', \
      "< grep -E \"list-none-s,[0-9]+,1000,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
-	title 'w/ Spin-lock' with linespoints lc rgb 'blue'
+	title 'Spin-lock' with linespoints lc rgb 'blue'
+
+##############################################################################################
+
+# Lab2B_2:
+set title "Lab2B-2: Throughput vs Synchronization (Mutex and Spin-lock)"
+set ylabel "Throughput"
+set logscale y 10
+set xlabel "Threads"
+set logscale x 2
+set xrange [0.75:]
+set output 'lab2b_1.png'
+
+# grep out only single threaded, un-protected, non-yield results
+plot \
+     "< grep -E \"list-none-m,[0-9]+,1000,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
+	title 'Mutex' with linespoints lc rgb 'red', \
+     "< grep -E \"list-none-s,[0-9]+,1000,\" lab2b_list.csv" using ($2):(1000000000/($7)) \
+	title 'Spin-lock' with linespoints lc rgb 'blue'
+
 
 # set title "List-2: Unprotected Threads and Iterations that run without failure"
 # set xlabel "Threads"

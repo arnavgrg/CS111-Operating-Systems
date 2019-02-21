@@ -1,6 +1,6 @@
     # ------------- start of lab2b_1.png tests ------------------- #
     #Spin-lock synchronized list operations
-    ./lab2_list --threads=1  --iterations=1000 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=1  --iterations=1000 --sync=s > lab2b_list.csv
     ./lab2_list --threads=2  --iterations=1000 --sync=s >> lab2b_list.csv
     ./lab2_list --threads=4  --iterations=1000 --sync=s >> lab2b_list.csv
     ./lab2_list --threads=8  --iterations=1000 --sync=s >> lab2b_list.csv

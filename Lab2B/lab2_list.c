@@ -63,6 +63,8 @@ const int KEYLEN = 5;
 //Create a struct that represents each sublist
 /*Every sublist should contain its own list + elements, and a way to turn on/set sync 
 options if they are passed in*/
+//Use typedef so we don't need to keep mentioning "struct" everytime we create an 
+//instance of this struct. 
 typedef struct {
     SortedList_t list;
     int s_lock;
@@ -78,10 +80,6 @@ static int num_threads = 1;
 static int sync_flag = 0;
 static int sync_m = 0;
 static int sync_s = 0;
-//Static variable to use pthread_mutex
-static pthread_mutex_t x;
-//Static variable for spinlock
-static int splock = 0;
 
 //Total number of elements to be created in the list
 static int num_elements = 0;
@@ -101,7 +99,7 @@ static pthread_t* threadids = NULL;
 //Picked this hash function because it was mentioned on Piazza and seemed 
 //the easiest to use
 //Link: http://www.cse.yorku.ca/~oz/hash.html
-unsigned long hash(unsigned char *str){
+unsigned long hash(const char *str) {
     unsigned long hash = 5381;
     for (int i=0; i < KEYLEN; i++)
         hash = ((hash << 5) + hash) + str[i];
@@ -123,6 +121,21 @@ unsigned long hash2(const char* str) {
     return hash_val;
 }
 
+//Return difference between start and end time.
+long long updateTime(struct timespec s, struct timespec e) {
+    //Multiply by 1*10^9 because it is in nanoseconds
+    return (( e.tv_sec - s.tv_sec ) * 1000000000 ) + (( e.tv_nsec - s.tv_nsec ));
+}
+
+//Free all malloc'd memory incase of failure, or before exiting
+void freeMemory() {
+    free(array_elements);
+    free(start_position);
+    free(sublists);
+    free(threadids);
+    free(thread_wait_times);
+}
+
 //Flush stderr, free memory and exit with status 1
 void exit_1() {
     fflush(stderr);
@@ -135,15 +148,6 @@ void exit_2() {
     fflush(stderr);
     freeMemory();
     exit(2);
-}
-
-//Free all malloc'd memory incase of failure, or before exiting
-void freeMemory() {
-    free(array_elements);
-    free(start_position);
-    free(sublists);
-    free(threadids);
-    free(thread_wait_times);
 }
 
 //Initialize memory for lists
@@ -164,7 +168,7 @@ void initializeSublists() {
         //it to the given memory space in the lists array
         sublist *s = &sublists[i];
         //Initialize the list in the struct
-        //This is the same as creating a head node for the sublist
+        //This is the same as initializing a head node for the sublist
         SortedList_t *l = &s->list;
         l->key = NULL;
         l->next = l;
@@ -177,8 +181,8 @@ void initializeSublists() {
         else if (sync_m) {
             //Initialize a mutex lock for the thread
             //Incase of failure, write to stderr, free memory and exit with status 1
-            if (!pthread_mutex_init(&s->m_lock, NULL)) {
-                fprintf(stderr, "Failure initializing mutex lock for thread\n");
+            if (pthread_mutex_init(&s->m_lock, NULL)) {
+                fprintf(stderr, "Failure initializing mutex lock for thread %d\n", i);
                 exit_1();
             }
         }
@@ -222,7 +226,7 @@ void initializeWaitTimes() {
     //Allocate enough memory to store wait times for each of the threads during locks
     thread_wait_times = malloc(sizeof(long long) * num_threads);
     if (!thread_wait_times) {
-        fprintf(stderr, "Failure while create memory for starting positions\n");
+        fprintf(stderr, "Failure while creating memory for starting positions\n");
         exit_1();
     }
     //If malloc was successful, initialize the wait times for each of the threads to 0
@@ -237,22 +241,180 @@ void initialize() {
     initializeMemoryForLists();
     //Initialize each of the empty sublists
     initializeSublists();
-    //Create elements and initialize each element's key
-    createElements();
     //Initialize wait times for each of the threads
     initializeWaitTimes();
+    //Create elements and initialize each element's key
+    createElements();
     //Allocate enough memory to hold the starting position for each thread.
     start_position = malloc(sizeof(int) * num_threads);
+    //If malloc fails, then write to stderr and exit with status 1
     if (!start_position) {
         fprintf(stderr, "Failure while create memory for starting positions\n");
         exit_1();
     }
 }
 
-//Helper function to search and delete elements from a given list
-void validateDelete(SortedList_t *list, const char *str) {
+//Helper function for start_time thread method to execute insertion of element 
+//into a list
+void l_insert(int start, int end, int tid) {
+    //Initialize variables to be used within the for loop
+    //For start and end times of the locks
+    struct timespec s_time, e_time; 
+    //Sublist
+    sublist *l = NULL; 
+    //Element
+    SortedListElement_t *element = NULL; 
+    //Traverse from start to end bounds for this thread
+    for (; start<end; start++) {
+        //Retrieve corresponding element in the array of initialized elements
+        element = &array_elements[start];
+        const char* k = element->key;
+        //Determine which sublist it gets inserted into
+        /*Search through the collection of sublists and finding the appropriate list by retrieving 
+        the key for this element passing it through our hash function, and computing a modulo with 
+        the number of lists*/
+        l = &sublists[hash(k) % num_lists];
+        //If mutex flag is 1
+        if (sync_m) {
+            //Start clock
+            if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+                fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+                exit_1();
+            }
+            //Set lock
+            if (pthread_mutex_lock(&l->m_lock)) {
+                fprintf(stderr, "Failed to lock mutex successfully\n");
+                exit_1();
+            }
+            //Stop clock
+            if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+                fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+                exit_1();
+            }
+            //Update wait time for the thread (if any)
+            thread_wait_times[tid] += updateTime(s_time, e_time);
+            //Insert element into the required sublist
+            SortedList_insert(&l->list, element);
+            //Unlock mutex 
+            if(pthread_mutex_unlock(&l->m_lock)){
+                fprintf(stderr, "Failed to unlock mutex successfully\n");
+                exit_1();
+            }
+        } 
+        //If spinlock flag
+        else if (sync_s) {
+            //Start clock
+            if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+                fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+                exit_1();
+            }
+            //Initialize spinlock
+            while (__sync_lock_test_and_set(&l->s_lock, 1));
+            //Stop clock
+            if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+                fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+                exit_1();
+            }
+            //Update wait time for the thread (if any)
+            thread_wait_times[tid] += updateTime(s_time, e_time);
+            //Inside Critical Section
+            //Insert element into the required sublist
+            SortedList_insert(&l->list, element);
+            //Release spinlock
+            __sync_lock_release(&l->s_lock);
+        } 
+        //No sync flags were passed
+        else
+            SortedList_insert(&l->list, element);
+    }
+}
+
+//Helper function to find the length of a given list
+void l_length(int tid) {
+    //For start and end times of the locks
+    struct timespec s_time, e_time;
+    //If mutex flag
+    if (sync_m) {
+        //Start clock
+        if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+            fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+            exit_1();
+        }
+        //lock each of the lists
+        for (int i=0; i < num_lists; i++) {
+            if (pthread_mutex_lock(&sublists[i].m_lock)) {
+                fprintf(stderr, "Failed to lock mutex successfully\n");
+                exit_1();
+            }
+        }
+        //Stop clock
+        if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+            fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+            exit_1();
+        }
+        //Update wait time for the thread (if any)
+        thread_wait_times[tid] += updateTime(s_time, e_time);
+        //Go through all the lists 
+        for (int i = 0; i < num_lists; i++) {
+            if (SortedList_length(&sublists[i].list) < 0) {
+                fprintf(stderr, "List is corrupted\n");
+                exit_2();
+            }
+        }
+        //Unlock each of the lists
+        for (int i=0; i < num_lists; i++) {
+            if (pthread_mutex_unlock(&sublists[i].m_lock)) {
+                fprintf(stderr, "Failed to unlock mutex successfully\n");
+                exit_1();
+            }
+        }
+    } 
+    //If spinlock flag
+    else if (sync_s) {
+        //Start clock
+        if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+            fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+            exit_1();
+        }
+        //Initialize spinlocks for all lists
+        for (int i=0; i<num_lists; i++){
+            while (__sync_lock_test_and_set(&sublists[i].s_lock, 1));
+        }
+        //Stop clock
+        if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+            fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+            exit_1();
+        }
+        //Update wait time for the thread (if any)
+        thread_wait_times[tid] += updateTime(s_time, e_time);
+        //Go through all the lists 
+        for (int i = 0; i < num_lists; i++) {
+            if (SortedList_length(&sublists[i].list) < 0) {
+                fprintf(stderr, "List is corrupted\n");
+                exit_2();
+            }
+        }
+        //Unlock spinlocks for all lists
+        for (int i=0; i<num_lists; i++) {
+             __sync_lock_release(&sublists[i].s_lock);
+        }
+    } 
+    //No sync flags were passed in
+    else {
+        //Go through all the lists 
+        for (int i = 0; i < num_lists; i++) {
+            if (SortedList_length(&sublists[i].list) < 0) {
+                fprintf(stderr, "List is corrupted\n");
+                exit_2();
+            }
+        }
+    } 
+}
+
+//Helper function for l_delete to search and delete elements from a given list
+void validate_delete(const char *str, SortedList_t *list) {
     //Lookup element element with key str in given list
-    SortedListElement_t *t = SortedList_lookup(list,str);
+    SortedListElement_t *t = SortedList_lookup(list, str);
     //If t is a nullptr, element wasn't found so write to stderr and exit
     if (t == NULL) {
         fprintf(stderr, "Element not found in list\n");
@@ -265,80 +427,124 @@ void validateDelete(SortedList_t *list, const char *str) {
     }
 }
 
-void* start_routine(void* val) {
-    //Set the bounds for each thread so that work doesn't overlap
-    int start_pos = *((int *) val);
-    int end_pos = start_pos + num_iterations;
-
-    //Insert elements
-    for (int i=start_pos; i<end_pos; i++) {
+//Helper function to delete all elements in a list
+void l_delete(int start, int end, int tid) {
+    //Initialize variables to be used within the for loop
+    //For start and end times of the locks
+    struct timespec s_time, e_time; 
+    //Sublist
+    sublist *l = NULL; 
+    //Element
+    SortedListElement_t *element = NULL; 
+    //Traverse from start to end bounds for this thread
+    for (; start<end; start++) {
+        //Retrieve corresponding element in the array of initialized elements
+        element = &array_elements[start];
+        const char* k = element->key;
+        //Determine which sublist it gets inserted into
+        /*Search through the collection of sublists and finding the appropriate list by retrieving 
+        the key for this element passing it through our hash function, and computing a modulo with 
+        the number of lists*/
+        l = &sublists[hash(k) % num_lists];
         //If mutex flag is 1
-        if (sync_m){
-            pthread_mutex_lock(&x);
-            SortedList_insert(&list, &array_elements[i]);
-            pthread_mutex_unlock(&x);
+        if (sync_m) {
+            //Start clock
+            if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+                fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+                exit_1();
+            }
+            //Set lock
+            if (pthread_mutex_lock(&l->m_lock)) {
+                fprintf(stderr, "Failed to lock mutex successfully\n");
+                exit_1();
+            }
+            //Stop clock
+            if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+                fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+                exit_1();
+            }
+            //Update wait time for the thread (if any)
+            thread_wait_times[tid] += updateTime(s_time, e_time);
+            //Delete element from the required sublist
+            validate_delete(k, &l->list);
+            //Unlock mutex 
+            if(pthread_mutex_unlock(&l->m_lock)) {
+                fprintf(stderr, "Failed to unlock mutex successfully\n");
+                exit_1();
+            }
         } 
         //If spinlock flag
-        else if (sync_s){
-            while (__sync_lock_test_and_set(&splock, 1));
+        else if (sync_s) {
+            //Start clock
+            if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+                fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+                exit_1();
+            }
+            //Initialize spinlock
+            while (__sync_lock_test_and_set(&l->s_lock, 1));
+            //Stop clock
+            if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+                fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+                exit_1();
+            }
+            //Update wait time for the thread (if any)
+            thread_wait_times[tid] += updateTime(s_time, e_time);
             //Inside Critical Section
-            SortedList_insert(&list, &array_elements[i]);
-            __sync_lock_release(&splock);
+            //Delete element from the required sublist
+            validate_delete(k, &l->list);
+            //Release spinlock
+            __sync_lock_release(&l->s_lock);
         } 
         //No sync flags were passed
         else
-            SortedList_insert(&list, &array_elements[i]);
+            validate_delete(k, &l->list);
     }
+}
 
-    //Find the length of the list
-    int length = 0;
-    if (sync_m){
-        pthread_mutex_lock(&x);
-        length = SortedList_length(&list);
-        pthread_mutex_unlock(&x);
-    } else if (sync_s){
-        while (__sync_lock_test_and_set(&splock, 1));
-        //Inside Critical Section
-        length = SortedList_length(&list);
-        __sync_lock_release(&splock);
-    } else 
-        length = SortedList_length(&list);
-    //If this value is 0, no elements were inserted
-    if (length <= 0) {
-        fprintf(stderr, "List is corrupted\n");
-        exit_2();
-    }
-
-    //Delete each of the keys
-    for (int i=start_pos; i<end_pos; i++) {
-        if (sync_m){
-            pthread_mutex_lock(&x);
-            validateDelete(i);
-            pthread_mutex_unlock(&x);
-        } else if (sync_s) {
-            while (__sync_lock_test_and_set(&splock, 1));
-            //Inside critical section
-            validateDelete(i);
-            __sync_lock_release(&splock);
-        } else 
-            //Helper method deletes the element as well
-            validateDelete(i);
-    }
-
-    //Need to return null since the function needs to return a pointer
+//Function that each thread invokes on creation. 
+//val is the parameter that the function takes (passed in during pthread_create)
+void* start_routine(void* val) {
+    //Set the bounds for each thread so that work doesn't overlap
+    int startPos = *((int *) val);
+    int endPos = startPos + num_iterations;
+    //Determine which threads wait time we're tracking
+    int waitId = startPos / num_iterations;
+    //Call helper functions to perform insertion, lookup and deletion
+    l_insert(startPos, endPos, waitId);
+    l_length(waitId);
+    l_delete(startPos, endPos, waitId);
+    //Need to return NULL pointer since function is of type void*
     return NULL;
 }
 
-//Return difference between start and end time.
-long double updateTime(struct timespec s, struct timespec e) {
-    //Multiply by 1*10^9 because it is in nanoseconds
-    return (( e.tv_sec - s.tv_sec ) * 1000000000 ) + (( e.tv_nsec - s.tv_nsec ));
+//Create pthreads and join pthreads
+void pthreadActivity() {
+    //Create each thread one by one.
+    for (int i=0, pos=0; i < num_threads; i++, pos += num_iterations) {
+        //If thread creation fails, write error message, deallocate memory and exit with code 1
+        //If thread creation is successful, call start_routine
+        //Note down start position for each of the threads so they don't conflict/overlap
+        start_position[i] = pos;
+        if (pthread_create(&threadids[i], NULL, start_routine, (void*) &start_position[i]) != 0) {
+            fprintf(stderr, "Error creating pthreads. Deallocating saved memory.\n");
+            exit_1();
+        }
+    }
+    //Join each of the threads after they're done executing
+    for (int i=0; i < num_threads; i++) {
+        //If thread joining fails 
+        if (pthread_join(threadids[i], NULL) != 0) {
+            fprintf(stderr, "Error joining threads and terminating. Deallocating saved memory\n");
+            exit_1();
+        }
+    }
 }
 
 int main(int argc, char* argv[]) {
     //Initialize/Create variables for getopt_long
     int choice;
     int option_index = 0;
+    
     //For clock_gettime()
     struct timespec start, end;
 
@@ -375,29 +581,6 @@ int main(int argc, char* argv[]) {
                 if (optarg)
                     num_lists = atoi(optarg);
                 break;
-            case YIELD: ;
-                //can take [idl] where i is insert, d is delete and l is lookup
-                //Find length 
-                size_t len = strlen(optarg);
-                //Too many arguments
-                if (len > (size_t)3 || len <= (size_t)0){   
-                    fprintf(stderr, "Too many/few arguments for --yield flag\n");
-                    exit_2();
-                }
-                //Process argument
-                for (int i=0; i < (int)len; i++) {
-                    if (optarg[i] == 'i')
-                        opt_yield |= INSERT_YIELD;
-                    else if (optarg[i] == 'd')
-                        opt_yield |= DELETE_YIELD;
-                    else if (optarg[i] == 'l')
-                        opt_yield |= LOOKUP_YIELD;
-                    else {
-                        fprintf(stderr, "Invalid argument(s) for --yield flag\n");
-                        exit_2();
-                    }
-                }
-                break;
             case SYNC:
                 //Set sync flag to 1
                 sync_flag = 1;
@@ -416,8 +599,38 @@ int main(int argc, char* argv[]) {
                 else 
                     sync_s = 1;
                 break;
+            case YIELD: ;
+                //can take [idl] where i is insert, d is delete and l is lookup
+                //Find length 
+                size_t len = strlen(optarg);
+                //Too many arguments
+                if (len > (size_t)3) {   
+                    fprintf(stderr, "Too many arguments for --yield flag\n");
+                    exit_2();
+                } 
+                //Too few arguments
+                else if (len <= (size_t)0) {
+                    fprintf(stderr, "Too few arguments for --yield flag\n");
+                    exit_2();
+                }
+                else {
+                    //Process argument passed in
+                    for (int i=0; i < (int)len; i++) {
+                        switch(optarg[i]) {
+                            case 'i': opt_yield |= INSERT_YIELD; break;
+                            case 'd': opt_yield |= DELETE_YIELD; break;
+                            case 'l': opt_yield |= LOOKUP_YIELD; break;
+                            default:
+                                fprintf(stderr, "Invalid argument(s) for --yield flag\n");
+                                exit_2();
+                                break;
+                        }
+                    }
+                }
+                break;
             default:
-                fprintf(stderr, "Invalid Arguments passed in.\n");
+                //Invalid argum
+                fprintf(stderr, "Invalid Arguments passed in. Only valid flags are --threads, --iterations, --sync, --lists and --yield\n");
                 exit_1();
                 break;
         }
@@ -442,26 +655,8 @@ int main(int argc, char* argv[]) {
         exit_1();
     }
 
-    //Otherwise, create each thread one by one.
-    for (int i=0, pos=0; i < num_threads; i++, pos += num_iterations) {
-        //If thread creation fails, write error message, deallocate memory and exit with code 1
-        //If thread creation is successful, call start_routine
-        //Note down start position for each of the threads so they don't conflict/overlap
-        start_position[i] = pos;
-        if (pthread_create(&threadids[i], NULL, start_routine, (void*) &start_position[i]) != 0) {
-            fprintf(stderr, "Error creating pthreads. Deallocating saved memory.\n");
-            exit_1();
-        }
-    }
-
-    //Join each of the threads after they're done executing
-    for (int i=0; i < num_threads; i++) {
-        //If thread joining fails 
-        if (pthread_join(threadids[i], NULL) != 0) {
-            fprintf(stderr, "Error joining threads and terminating. Deallocating saved memory\n");
-            exit_1();
-        }
-    }
+    //Conduct all activity related to pthreads
+    pthreadActivity();
 
     //Stop clock
     //If error, write to stderr and exit with code 1
@@ -471,9 +666,16 @@ int main(int argc, char* argv[]) {
     }
 
     //Check if length of the list is actually 0 
-    if (SortedList_length(&list) != 0){
-        fprintf(stderr, "Length is not 0\n");
-        exit_2();
+    int len;
+    for (int i=0; i < num_lists; i++){
+        len = SortedList_length(&sublists[i].list);
+        if (len < 0){
+            fprintf(stderr, "List is corrupted\n");
+            exit_2();
+        } else if (len != 0) {
+            fprintf(stderr, "Length is not 0\n");
+            exit_2();
+        }
     }
 
     //Create a 16 character list to store option
@@ -506,11 +708,18 @@ int main(int argc, char* argv[]) {
     long long ops = num_threads*num_iterations*3;
     //Calculate average time per operation
     long long avgops = timing/ops;
+    //Calculate total wait time taken by all the threads
+    long long wait_time = 0;
+    for (int i=0; i < num_threads; i++) {
+        wait_time += thread_wait_times[i];
+    }
+    long long avg_wait_for_lock = wait_time / (((num_iterations<<1) + 1) * num_threads);
 
     //Print .csv output line
     /*test name, no. of threads, no. of terations, no. of lists, 
-    no. of operations, total runtime, average run time per operation*/
-    printf("%s,%d,%d,%d,%lld,%lld,%lld\n", str, num_threads, num_iterations, num_lists, ops, timing, avgops);
+    no. of operations, total runtime, average run time per operation, 
+    average wait for lock*/
+    printf("%s,%d,%d,%d,%lld,%lld,%lld,%lld\n", str, num_threads, num_iterations, num_lists, ops, timing, avgops, avg_wait_for_lock);
 
     //Free Memory
     freeMemory();
