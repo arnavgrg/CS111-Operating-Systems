@@ -1,11 +1,11 @@
 #NAME: ARNAV GARG
 #UID: 304911796
 #EMAIL: arnavgrg@ucla.edu
-#SLIPDAYS: 0
+#SLIPDAYS: 3
 
 .SILENT:
 
-all: build
+default: build
 
 build:
 	gcc -g -Wall -Wextra -lpthread -lprofiler lab2_list.c SortedList.c -o lab2_list
@@ -13,7 +13,7 @@ build:
 clean:
 	rm -rf lab2_list *.tar.gz *.o *.dSYM DS_Store
 
-profile:
+profile: build
 	-rm -f ./raw.gperf 1>/dev/null 2>/dev/null
 	-CPUPROFILE=./raw.gperf ./lab2_list --sync=s --threads=12 --iterations=1000 1>/dev/null 2>/dev/null
 	-pprof --text ./lab2_list ./raw.gperf >profile.out 2>/dev/null

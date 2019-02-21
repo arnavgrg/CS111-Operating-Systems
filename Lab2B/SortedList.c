@@ -2,7 +2,7 @@
 NAME: Arnav Garg
 EMAIL: arnavgrg@ucla.edu
 UID: 304911796
-SLIPDAYS: 0
+SLIPDAYS: 3
 */
 
 //Allows for greater portability

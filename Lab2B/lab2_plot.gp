@@ -71,17 +71,16 @@ set xrange [0.75:]
 set output 'lab2b_3.png'
 plot \
      "< grep -E \"list-id-none,[0-9]+,[0-9]+,4,\" lab2b_list.csv" using ($2):($3) \
-	title 'Unprotected (no synchronization)' with linespoints lc rgb 'blue', \
+	title 'Unprotected (no synchronization)' with points lc rgb 'blue', \
      "< grep -E \"list-id-m,[0-9]+,[0-9]+,4,\" lab2b_list.csv" using ($2):($3) \
-	title 'Mutex Iterations' with linespoints lc rgb 'green', \
+	title 'Mutex Iterations' with points lc rgb 'green', \
      "< grep -E \"list-id-m,[0-9]+,[0-9]+,4,\" lab2b_list.csv" using ($2):($3) \
-	title 'Spinlock Iterations' with linespoints lc rgb 'red'
+	title 'Spinlock Iterations' with points lc rgb 'red'
 
 ##############################################################################################
 
 # Lab2B_4:
 set title "Lab2B-4: Performance of a paritioned list for mutex operations"
-#set key right top
 set ylabel "Throughput"
 set logscale y 10
 set xlabel "Threads"
@@ -89,20 +88,19 @@ set logscale x 2
 set xrange [0.75:]
 set output 'lab2b_4.png'
 plot \
-     "< grep -E \"list-none-m,[0-9]+,1000,1,\" lab_2b_list.csv" using ($2):(NS/($7)) \
+     "< grep -E \"list-none-m,[0-9],1000,1,|list-none-m,12,1000,1,\" lab2b_list.csv" using ($2):(NS/($7)) \
 	title '1 list' with linespoints lc rgb 'orange', \
-     "< grep -E \"list-none-m,[0-9]+,1000,4," lab_2b_list.csv" using ($2):(NS/($7)) \
+     "< grep -E \"list-none-m,[0-9],1000,4,|list-none-m,12,1000,4,\" lab2b_list.csv" using ($2):(NS/($7)) \
 	title '4 lists' with linespoints lc rgb 'red', \
-     "< grep -E \"list-none-m,[0-9]+,1000,8," lab_2b_list.csv" using ($2):(NS/($7)) \
+     "< grep -E \"list-none-m,[0-9],1000,8,|list-none-m,12,1000,8,\" lab2b_list.csv" using ($2):(NS/($7)) \
 	title '8 lists' with linespoints lc rgb 'green', \
-     "< grep -E \"list-none-m,[0-9]+,1000,16," lab_2b_list.csv" using ($2):(NS/($7)) \
+     "< grep -E \"list-none-m,[0-9],1000,16,|list-none-m,12,1000,16,\" lab2b_list.csv" using ($2):(NS/($7)) \
 	title '16 lists' with linespoints lc rgb 'blue'
 
 ##############################################################################################
 
 # Lab2B_5:
 set title "Lab2B-5: Performance of a paritioned list for spinlock operations"
-#set key right top
 set ylabel "Throughput"
 set logscale y 10
 set xlabel "Threads"
@@ -110,11 +108,11 @@ set logscale x 2
 set xrange [0.75:]
 set output 'lab2b_5.png'
 plot \
-     "< grep -E \"list-none-s,[0-9]+,1000,1,\" lab_2b_list.csv" using ($2):(NS/($7)) \
+     "< grep -E \"list-none-s,[0-9],1000,1,|list-none-s,12,1000,1,\" lab2b_list.csv" using ($2):(NS/($7)) \
 	title '1 list' with linespoints lc rgb 'orange', \
-     "< grep -E \"list-none-s,[0-9]+,1000,4," lab_2b_list.csv" using ($2):(NS/($7)) \
+     "< grep -E \"list-none-s,[0-9],1000,4,|list-none-s,12,1000,4,\" lab2b_list.csv" using ($2):(NS/($7)) \
 	title '4 lists' with linespoints lc rgb 'red', \
-     "< grep -E \"list-none-s,[0-9]+,1000,8," lab_2b_list.csv" using ($2):(NS/($7)) \
+     "< grep -E \"list-none-s,[0-9],1000,8,|list-none-s,12,1000,8,\" lab2b_list.csv" using ($2):(NS/($7)) \
 	title '8 lists' with linespoints lc rgb 'green', \
-     "< grep -E \"list-none-s,[0-9]+,1000,16," lab_2b_list.csv" using ($2):(NS/($7)) \
+     "< grep -E \"list-none-s,[0-9],1000,16,|list-none-s,12,1000,16,\" lab2b_list.csv" using ($2):(NS/($7)) \
 	title '16 lists' with linespoints lc rgb 'blue'
