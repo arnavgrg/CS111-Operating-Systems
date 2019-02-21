@@ -3,7 +3,7 @@ This repository contains my project solutions for CS111 (Operating Systems) at U
 
 | Lab | Score |
 | ------------- | ------------- |
-| Lab-0  | TBD |
+| Lab-0  | 100 |
 | Lab-1A | TBD |
 | Lab-1B | TBD |
 | Lab-1C | TBD |
