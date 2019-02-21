@@ -23,7 +23,7 @@ profile:
 	rm -f ./raw.gperf 1>/dev/null 2>/dev/null
 
 dist: graphs
-	tar -czvf lab2b-304911796.tar.gz SortedList.h SortedList.c lab2_list.c Makefile README lab2b_list.csv lab2_list.gp tests.sh
+	tar -czvf lab2b-304911796.tar.gz SortedList.* lab2_list.c Makefile README lab2b_list.csv lab2_list.gp tests.sh *.png
 
 graphs: tests 
 	chmod +x lab2_plot.gp
