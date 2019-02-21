@@ -102,4 +102,48 @@
     ./lab2_list --threads=12 --lists=4 --yield=id --iterations=80 --sync=m >> lab2b_list.csv
     ./lab2_list --threads=16 --lists=4 --yield=id --iterations=80 --sync=m >> lab2b_list.csv
     # ------------- end of lab2b_3.png tests ------------------- #
+    
+    # ------------- start of lab2b_4.png tests ------------------- #
+    #Mutex Synchronized List Operations
+    #4 Lists
+    ./lab2_list --threads=1  --iterations=1000 --lists=4 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=2  --iterations=1000 --lists=4 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=4  --iterations=1000 --lists=4 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=8  --iterations=1000 --lists=4 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=12 --iterations=1000 --lists=4 --sync=m >> lab2b_list.csv
+    #8 Lists
+    ./lab2_list --threads=1  --iterations=1000 --lists=8 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=2  --iterations=1000 --lists=8 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=4  --iterations=1000 --lists=8 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=8  --iterations=1000 --lists=8 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=12 --iterations=1000 --lists=8 --sync=m >> lab2b_list.csv
+    #16 Lists
+    ./lab2_list --threads=1  --iterations=1000 --lists=16 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=2  --iterations=1000 --lists=16 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=4  --iterations=1000 --lists=16 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=8  --iterations=1000 --lists=16 --sync=m >> lab2b_list.csv
+    ./lab2_list --threads=12 --iterations=1000 --lists=16 --sync=m >> lab2b_list.csv
+    # ------------- start of lab2b_4.png tests ------------------- #
+    
+    # ------------- start of lab2b_5.png tests ------------------- #
+    #Spin-lock synchronized list operations
+    #4 Lists
+    ./lab2_list --threads=1  --iterations=1000 --lists=4 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=2  --iterations=1000 --lists=4 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=4  --iterations=1000 --lists=4 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=8  --iterations=1000 --lists=4 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=12 --iterations=1000 --lists=4 --sync=s >> lab2b_list.csv
+    #8 Lists
+    ./lab2_list --threads=1  --iterations=1000 --lists=8 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=2  --iterations=1000 --lists=8 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=4  --iterations=1000 --lists=8 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=8  --iterations=1000 --lists=8 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=12 --iterations=1000 --lists=8 --sync=s >> lab2b_list.csv
+    #16 Lists
+    ./lab2_list --threads=1  --iterations=1000 --lists=16 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=2  --iterations=1000 --lists=16 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=4  --iterations=1000 --lists=16 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=8  --iterations=1000 --lists=16 --sync=s >> lab2b_list.csv
+    ./lab2_list --threads=12 --iterations=1000 --lists=16 --sync=s >> lab2b_list.csv
+    # ------------- end of lab2b_5.png tests ------------------- #
    
