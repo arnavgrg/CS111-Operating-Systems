@@ -1,0 +1,411 @@
+Total: 1310 samples
+     577  44.0%  44.0%      661  50.5% l_insert
+     553  42.2%  86.3%      643  49.1% l_delete
+     145  11.1%  97.3%      145  11.1% __strcmp_sse42
+      13   1.0%  98.3%       84   6.4% SortedList_insert
+      13   1.0%  99.3%       89   6.8% SortedList_lookup
+       6   0.5%  99.8%        6   0.5% l_length
+       2   0.2%  99.9%        2   0.2% _init
+       1   0.1% 100.0%        1   0.1% __GI___clock_gettime
+       0   0.0% 100.0%     1310 100.0% __clone
+       0   0.0% 100.0%     1310 100.0% start_routine
+       0   0.0% 100.0%     1310 100.0% start_thread
+       0   0.0% 100.0%       89   6.8% validate_delete
+ROUTINE ====================== start_routine in /u/cs/ugrad/arnav/CS111/Lab2B/lab2_list.c
+     0   1310 Total samples (flat / cumulative)
+     .      .  501:     }
+     .      .  502: }
+     .      .  503: 
+     .      .  504: //Function that each thread invokes on creation. 
+     .      .  505: //val is the parameter that the function takes (passed in during pthread_create)
+---
+     .      .  506: void* start_routine(void* val) {
+     .      .  507:     //Set the bounds for each thread so that work doesn't overlap
+     .      .  508:     int startPos = *((int *) val);
+     .      .  509:     int endPos = startPos + num_iterations;
+     .      .  510:     //Determine which threads wait time we're tracking
+     .      .  511:     int waitId = startPos / num_iterations;
+     .      .  512:     //Call helper functions to perform insertion, lookup and deletion
+     .    661  513:     l_insert(startPos, endPos, waitId);
+     .      6  514:     l_length(waitId);
+     .    643  515:     l_delete(startPos, endPos, waitId);
+     .      .  516:     //Need to return NULL pointer since function is of type void*
+     .      .  517:     return NULL;
+     .      .  518: }
+---
+     .      .  519: 
+     .      .  520: //Create pthreads and join pthreads
+     .      .  521: void pthreadActivity() {
+     .      .  522:     //Create each thread one by one.
+     .      .  523:     for (int i=0, pos=0; i < num_threads; i++, pos += num_iterations) {
+ROUTINE ====================== start_routine in /u/cs/ugrad/arnav/CS111/Lab2B/lab2_list.c
+     0   1310 Total samples (flat / cumulative)
+     .      .  501:     }
+     .      .  502: }
+     .      .  503: 
+     .      .  504: //Function that each thread invokes on creation. 
+     .      .  505: //val is the parameter that the function takes (passed in during pthread_create)
+---
+     .      .  506: void* start_routine(void* val) {
+     .      .  507:     //Set the bounds for each thread so that work doesn't overlap
+     .      .  508:     int startPos = *((int *) val);
+     .      .  509:     int endPos = startPos + num_iterations;
+     .      .  510:     //Determine which threads wait time we're tracking
+     .      .  511:     int waitId = startPos / num_iterations;
+     .      .  512:     //Call helper functions to perform insertion, lookup and deletion
+     .    661  513:     l_insert(startPos, endPos, waitId);
+     .      6  514:     l_length(waitId);
+     .    643  515:     l_delete(startPos, endPos, waitId);
+     .      .  516:     //Need to return NULL pointer since function is of type void*
+     .      .  517:     return NULL;
+     .      .  518: }
+---
+     .      .  519: 
+     .      .  520: //Create pthreads and join pthreads
+     .      .  521: void pthreadActivity() {
+     .      .  522:     //Create each thread one by one.
+     .      .  523:     for (int i=0, pos=0; i < num_threads; i++, pos += num_iterations) {
+ROUTINE ====================== l_insert in /u/cs/ugrad/arnav/CS111/Lab2B/lab2_list.c
+   577    661 Total samples (flat / cumulative)
+     .      .  254:     }
+     .      .  255: }
+     .      .  256: 
+     .      .  257: //Helper function for start_time thread method to execute insertion of element 
+     .      .  258: //into a list
+---
+     .      .  259: void l_insert(int start, int end, int tid) {
+     .      .  260:     //Initialize variables to be used within the for loop
+     .      .  261:     //For start and end times of the locks
+     .      .  262:     struct timespec s_time, e_time; 
+     .      .  263:     //Sublist
+     .      .  264:     sublist *l = NULL; 
+     .      .  265:     //Element
+     .      .  266:     SortedListElement_t *element = NULL; 
+     .      .  267:     //Traverse from start to end bounds for this thread
+     .      .  268:     for (; start<end; start++) {
+     .      .  269:         //Retrieve corresponding element in the array of initialized elements
+     .      .  270:         element = &array_elements[start];
+     .      .  271:         const char* k = element->key;
+     .      .  272:         //Determine which sublist it gets inserted into
+     .      .  273:         /*Search through the collection of sublists and finding the appropriate list by retrieving 
+     .      .  274:         the key for this element passing it through our hash function, and computing a modulo with 
+     .      .  275:         the number of lists*/
+     .      .  276:         l = &sublists[hash2(k) % num_lists];
+     .      .  277:         //If mutex flag is 1
+     .      .  278:         if (sync_m) {
+     .      .  279:             //Start clock
+     .      .  280:             if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+     .      .  281:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  282:                 exit_1();
+     .      .  283:             }
+     .      .  284:             //Set lock
+     .      .  285:             if (pthread_mutex_lock(&l->m_lock)) {
+     .      .  286:                 fprintf(stderr, "Failed to lock mutex successfully\n");
+     .      .  287:                 exit_1();
+     .      .  288:             }
+     .      .  289:             //Stop clock
+     .      .  290:             if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+     .      .  291:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  292:                 exit_1();
+     .      .  293:             }
+     .      .  294:             //Update wait time for the thread (if any)
+     .      .  295:             thread_wait_times[tid] += updateTime(s_time, e_time);
+     .      .  296:             //Insert element into the required sublist
+     .      .  297:             SortedList_insert(&l->list, element);
+     .      .  298:             //Unlock mutex 
+     .      .  299:             if(pthread_mutex_unlock(&l->m_lock)){
+     .      .  300:                 fprintf(stderr, "Failed to unlock mutex successfully\n");
+     .      .  301:                 exit_1();
+     .      .  302:             }
+     .      .  303:         } 
+     .      .  304:         //If spinlock flag
+     .      .  305:         else if (sync_s) {
+     .      .  306:             //Start clock
+     .      .  307:             if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+     .      .  308:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  309:                 exit_1();
+     .      .  310:             }
+     .      .  311:             //Initialize spinlock
+   576    576  312:             while (__sync_lock_test_and_set(&l->s_lock, 1));
+     .      .  313:             //Stop clock
+     1      1  314:             if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+     .      .  315:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  316:                 exit_1();
+     .      .  317:             }
+     .      .  318:             //Update wait time for the thread (if any)
+     .      .  319:             thread_wait_times[tid] += updateTime(s_time, e_time);
+     .      .  320:             //Inside Critical Section
+     .      .  321:             //Insert element into the required sublist
+     .     84  322:             SortedList_insert(&l->list, element);
+     .      .  323:             //Release spinlock
+     .      .  324:             __sync_lock_release(&l->s_lock);
+     .      .  325:         } 
+     .      .  326:         //No sync flags were passed
+     .      .  327:         else
+     .      .  328:             SortedList_insert(&l->list, element);
+     .      .  329:     }
+     .      .  330: }
+---
+     .      .  331: 
+     .      .  332: //Helper function to find the length of a given list
+     .      .  333: void l_length(int tid) {
+     .      .  334:     //For start and end times of the locks
+     .      .  335:     struct timespec s_time, e_time;
+ROUTINE ====================== l_insert in /u/cs/ugrad/arnav/CS111/Lab2B/lab2_list.c
+   577    661 Total samples (flat / cumulative)
+     .      .  254:     }
+     .      .  255: }
+     .      .  256: 
+     .      .  257: //Helper function for start_time thread method to execute insertion of element 
+     .      .  258: //into a list
+---
+     .      .  259: void l_insert(int start, int end, int tid) {
+     .      .  260:     //Initialize variables to be used within the for loop
+     .      .  261:     //For start and end times of the locks
+     .      .  262:     struct timespec s_time, e_time; 
+     .      .  263:     //Sublist
+     .      .  264:     sublist *l = NULL; 
+     .      .  265:     //Element
+     .      .  266:     SortedListElement_t *element = NULL; 
+     .      .  267:     //Traverse from start to end bounds for this thread
+     .      .  268:     for (; start<end; start++) {
+     .      .  269:         //Retrieve corresponding element in the array of initialized elements
+     .      .  270:         element = &array_elements[start];
+     .      .  271:         const char* k = element->key;
+     .      .  272:         //Determine which sublist it gets inserted into
+     .      .  273:         /*Search through the collection of sublists and finding the appropriate list by retrieving 
+     .      .  274:         the key for this element passing it through our hash function, and computing a modulo with 
+     .      .  275:         the number of lists*/
+     .      .  276:         l = &sublists[hash2(k) % num_lists];
+     .      .  277:         //If mutex flag is 1
+     .      .  278:         if (sync_m) {
+     .      .  279:             //Start clock
+     .      .  280:             if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+     .      .  281:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  282:                 exit_1();
+     .      .  283:             }
+     .      .  284:             //Set lock
+     .      .  285:             if (pthread_mutex_lock(&l->m_lock)) {
+     .      .  286:                 fprintf(stderr, "Failed to lock mutex successfully\n");
+     .      .  287:                 exit_1();
+     .      .  288:             }
+     .      .  289:             //Stop clock
+     .      .  290:             if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+     .      .  291:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  292:                 exit_1();
+     .      .  293:             }
+     .      .  294:             //Update wait time for the thread (if any)
+     .      .  295:             thread_wait_times[tid] += updateTime(s_time, e_time);
+     .      .  296:             //Insert element into the required sublist
+     .      .  297:             SortedList_insert(&l->list, element);
+     .      .  298:             //Unlock mutex 
+     .      .  299:             if(pthread_mutex_unlock(&l->m_lock)){
+     .      .  300:                 fprintf(stderr, "Failed to unlock mutex successfully\n");
+     .      .  301:                 exit_1();
+     .      .  302:             }
+     .      .  303:         } 
+     .      .  304:         //If spinlock flag
+     .      .  305:         else if (sync_s) {
+     .      .  306:             //Start clock
+     .      .  307:             if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+     .      .  308:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  309:                 exit_1();
+     .      .  310:             }
+     .      .  311:             //Initialize spinlock
+   576    576  312:             while (__sync_lock_test_and_set(&l->s_lock, 1));
+     .      .  313:             //Stop clock
+     1      1  314:             if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+     .      .  315:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  316:                 exit_1();
+     .      .  317:             }
+     .      .  318:             //Update wait time for the thread (if any)
+     .      .  319:             thread_wait_times[tid] += updateTime(s_time, e_time);
+     .      .  320:             //Inside Critical Section
+     .      .  321:             //Insert element into the required sublist
+     .     84  322:             SortedList_insert(&l->list, element);
+     .      .  323:             //Release spinlock
+     .      .  324:             __sync_lock_release(&l->s_lock);
+     .      .  325:         } 
+     .      .  326:         //No sync flags were passed
+     .      .  327:         else
+     .      .  328:             SortedList_insert(&l->list, element);
+     .      .  329:     }
+     .      .  330: }
+---
+     .      .  331: 
+     .      .  332: //Helper function to find the length of a given list
+     .      .  333: void l_length(int tid) {
+     .      .  334:     //For start and end times of the locks
+     .      .  335:     struct timespec s_time, e_time;
+ROUTINE ====================== l_delete in /u/cs/ugrad/arnav/CS111/Lab2B/lab2_list.c
+   553    643 Total samples (flat / cumulative)
+     .      .  426:         exit_2();
+     .      .  427:     }
+     .      .  428: }
+     .      .  429: 
+     .      .  430: //Helper function to delete all elements in a list
+---
+     .      .  431: void l_delete(int start, int end, int tid) {
+     .      .  432:     //Initialize variables to be used within the for loop
+     .      .  433:     //For start and end times of the locks
+     .      .  434:     struct timespec s_time, e_time; 
+     .      .  435:     //Sublist
+     .      .  436:     sublist *l = NULL; 
+     .      .  437:     //Element
+     .      .  438:     SortedListElement_t *element = NULL; 
+     .      .  439:     //Traverse from start to end bounds for this thread
+     .      .  440:     for (; start<end; start++) {
+     .      .  441:         //Retrieve corresponding element in the array of initialized elements
+     .      .  442:         element = &array_elements[start];
+     .      .  443:         const char* k = element->key;
+     .      .  444:         //Determine which sublist it gets inserted into
+     .      .  445:         /*Search through the collection of sublists and finding the appropriate list by retrieving 
+     .      .  446:         the key for this element passing it through our hash function, and computing a modulo with 
+     .      .  447:         the number of lists*/
+     .      .  448:         l = &sublists[hash2(k) % num_lists];
+     .      .  449:         //If mutex flag is 1
+     .      .  450:         if (sync_m) {
+     .      .  451:             //Start clock
+     .      .  452:             if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+     .      .  453:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  454:                 exit_1();
+     .      .  455:             }
+     .      .  456:             //Set lock
+     .      .  457:             if (pthread_mutex_lock(&l->m_lock)) {
+     .      .  458:                 fprintf(stderr, "Failed to lock mutex successfully\n");
+     .      .  459:                 exit_1();
+     .      .  460:             }
+     .      .  461:             //Stop clock
+     .      .  462:             if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+     .      .  463:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  464:                 exit_1();
+     .      .  465:             }
+     .      .  466:             //Update wait time for the thread (if any)
+     .      .  467:             thread_wait_times[tid] += updateTime(s_time, e_time);
+     .      .  468:             //Delete element from the required sublist
+     .      .  469:             validate_delete(k, &l->list);
+     .      .  470:             //Unlock mutex 
+     .      .  471:             if(pthread_mutex_unlock(&l->m_lock)) {
+     .      .  472:                 fprintf(stderr, "Failed to unlock mutex successfully\n");
+     .      .  473:                 exit_1();
+     .      .  474:             }
+     .      .  475:         } 
+     .      .  476:         //If spinlock flag
+     .      .  477:         else if (sync_s) {
+     .      .  478:             //Start clock
+     .      .  479:             if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+     .      .  480:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  481:                 exit_1();
+     .      .  482:             }
+     .      .  483:             //Initialize spinlock
+   553    553  484:             while (__sync_lock_test_and_set(&l->s_lock, 1));
+     .      .  485:             //Stop clock
+     .      1  486:             if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+     .      .  487:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  488:                 exit_1();
+     .      .  489:             }
+     .      .  490:             //Update wait time for the thread (if any)
+     .      .  491:             thread_wait_times[tid] += updateTime(s_time, e_time);
+     .      .  492:             //Inside Critical Section
+     .      .  493:             //Delete element from the required sublist
+     .     89  494:             validate_delete(k, &l->list);
+     .      .  495:             //Release spinlock
+     .      .  496:             __sync_lock_release(&l->s_lock);
+     .      .  497:         } 
+     .      .  498:         //No sync flags were passed
+     .      .  499:         else
+     .      .  500:             validate_delete(k, &l->list);
+     .      .  501:     }
+     .      .  502: }
+---
+     .      .  503: 
+     .      .  504: //Function that each thread invokes on creation. 
+     .      .  505: //val is the parameter that the function takes (passed in during pthread_create)
+     .      .  506: void* start_routine(void* val) {
+     .      .  507:     //Set the bounds for each thread so that work doesn't overlap
+ROUTINE ====================== l_delete in /u/cs/ugrad/arnav/CS111/Lab2B/lab2_list.c
+   553    643 Total samples (flat / cumulative)
+     .      .  426:         exit_2();
+     .      .  427:     }
+     .      .  428: }
+     .      .  429: 
+     .      .  430: //Helper function to delete all elements in a list
+---
+     .      .  431: void l_delete(int start, int end, int tid) {
+     .      .  432:     //Initialize variables to be used within the for loop
+     .      .  433:     //For start and end times of the locks
+     .      .  434:     struct timespec s_time, e_time; 
+     .      .  435:     //Sublist
+     .      .  436:     sublist *l = NULL; 
+     .      .  437:     //Element
+     .      .  438:     SortedListElement_t *element = NULL; 
+     .      .  439:     //Traverse from start to end bounds for this thread
+     .      .  440:     for (; start<end; start++) {
+     .      .  441:         //Retrieve corresponding element in the array of initialized elements
+     .      .  442:         element = &array_elements[start];
+     .      .  443:         const char* k = element->key;
+     .      .  444:         //Determine which sublist it gets inserted into
+     .      .  445:         /*Search through the collection of sublists and finding the appropriate list by retrieving 
+     .      .  446:         the key for this element passing it through our hash function, and computing a modulo with 
+     .      .  447:         the number of lists*/
+     .      .  448:         l = &sublists[hash2(k) % num_lists];
+     .      .  449:         //If mutex flag is 1
+     .      .  450:         if (sync_m) {
+     .      .  451:             //Start clock
+     .      .  452:             if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+     .      .  453:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  454:                 exit_1();
+     .      .  455:             }
+     .      .  456:             //Set lock
+     .      .  457:             if (pthread_mutex_lock(&l->m_lock)) {
+     .      .  458:                 fprintf(stderr, "Failed to lock mutex successfully\n");
+     .      .  459:                 exit_1();
+     .      .  460:             }
+     .      .  461:             //Stop clock
+     .      .  462:             if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+     .      .  463:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  464:                 exit_1();
+     .      .  465:             }
+     .      .  466:             //Update wait time for the thread (if any)
+     .      .  467:             thread_wait_times[tid] += updateTime(s_time, e_time);
+     .      .  468:             //Delete element from the required sublist
+     .      .  469:             validate_delete(k, &l->list);
+     .      .  470:             //Unlock mutex 
+     .      .  471:             if(pthread_mutex_unlock(&l->m_lock)) {
+     .      .  472:                 fprintf(stderr, "Failed to unlock mutex successfully\n");
+     .      .  473:                 exit_1();
+     .      .  474:             }
+     .      .  475:         } 
+     .      .  476:         //If spinlock flag
+     .      .  477:         else if (sync_s) {
+     .      .  478:             //Start clock
+     .      .  479:             if ((clock_gettime(CLOCK_MONOTONIC, &s_time)) == -1) {
+     .      .  480:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  481:                 exit_1();
+     .      .  482:             }
+     .      .  483:             //Initialize spinlock
+   553    553  484:             while (__sync_lock_test_and_set(&l->s_lock, 1));
+     .      .  485:             //Stop clock
+     .      1  486:             if ((clock_gettime(CLOCK_MONOTONIC, &e_time)) == -1) {
+     .      .  487:                 fprintf(stderr, "Clock gettime start failed: %d - %s\n", errno, strerror(errno));
+     .      .  488:                 exit_1();
+     .      .  489:             }
+     .      .  490:             //Update wait time for the thread (if any)
+     .      .  491:             thread_wait_times[tid] += updateTime(s_time, e_time);
+     .      .  492:             //Inside Critical Section
+     .      .  493:             //Delete element from the required sublist
+     .     89  494:             validate_delete(k, &l->list);
+     .      .  495:             //Release spinlock
+     .      .  496:             __sync_lock_release(&l->s_lock);
+     .      .  497:         } 
+     .      .  498:         //No sync flags were passed
+     .      .  499:         else
+     .      .  500:             validate_delete(k, &l->list);
+     .      .  501:     }
+     .      .  502: }
+---
+     .      .  503: 
+     .      .  504: //Function that each thread invokes on creation. 
+     .      .  505: //val is the parameter that the function takes (passed in during pthread_create)
+     .      .  506: void* start_routine(void* val) {
+     .      .  507:     //Set the bounds for each thread so that work doesn't overlap

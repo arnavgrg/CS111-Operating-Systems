@@ -96,6 +96,8 @@ static long long *thread_wait_times = NULL;
 static pthread_t* threadids = NULL;
 
 //djb2 Hash function that hashes a string
+//Picked this hash function because it was mentioned on Piazza and seemed 
+//the easiest to use
 //Link: http://www.cse.yorku.ca/~oz/hash.html
 unsigned long hash(const char *str) {
     unsigned long hash = 5381;
@@ -105,7 +107,6 @@ unsigned long hash(const char *str) {
 }
 
 //Jenkin's One at a time Hash function
-//Used this hash function since it seems to have a more complex hash algorithm
 //Link: https://en.wikibooks.org/wiki/Algorithm_Implementation/Hashing
 unsigned long hash2(const char* str) {
     unsigned long hash_val = 0;
