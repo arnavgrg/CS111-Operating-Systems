@@ -55,8 +55,24 @@ const unsigned int I_GID = 2;           //i_gid
 const unsigned int I_SIZE = 4;          //i_size
 const unsigned int I_BLOCKS = 4;        //i_blocks
 
+//Save length of directory name
+const unsigned int DIR_NAME_LEN = 255;
+
 //Save buffer size globally
 const unsigned int BUFFER_SIZE = 64; 
+
+//Struct to hold traversal information
+//Especially used while traversing directory info
+typedef struct traversal_info {
+    unsigned long parent_inode_num;
+    unsigned int parent_block_num;
+    unsigned int block_num;
+    unsigned int level_of_indirection;
+    unsigned int depth;
+    unsigned int file_size;
+    unsigned char mode;
+    unsigned int logical_block_offset;
+} Traversal;
 
 //Struct to hold all the data in the superblock
 typedef struct filesys_superblock_info {
@@ -538,6 +554,157 @@ void calculate_gmt(time_t *t, char* time_s) {
     time_ = NULL;
 }
 
+//Helper method to process indirect entries
+void process_indirect_directory(Traversal info){
+    //Save block size
+    unsigned int block_size = super_info.block_size;
+    //Initialize variables
+    u_int32_t num_entries;
+    //Calculate num_entries 
+    num_entries = block_size/sizeof(u_int32_t);
+    //Initial an array with number of elements = num_entries
+    unsigned int block_data[num_entries];
+    //Array with number of elements = block size in superblock
+    unsigned int blocks_or_entries[block_size];
+    //void *memset(void *s, int c, size_t n);
+    /*The memset() function fills the first n bytes of the memory area pointed to by s with the 
+     constant byte c.*/
+    //Initialize values in block_data to 0
+    memset(block_data,0,sizeof(block_data));
+    //Read data into buffer from the offset
+    read_fs_offset(block_data, block_size, info.block_num * block_size);
+    //Initialize an instance of the struct for directories
+    struct ext2_dir_entry *entry = NULL;
+    //Traverse through the total number of entries and process the block_data array
+    for (u_int32_t i = 0; i < num_entries; i++){
+        //If block address is 0, it is not a valid directory entry
+        if (block_data[i] == 0)
+                return;
+        //Check the level of indirection
+        //Since we're processing indirect blocks, this must be > 0 
+        if (info.level_of_indirection > 1) {
+            //Update Traversal object's block_num
+            info.block_num = block_data[i];
+            //Decrement the level of indirection by 1
+            info.level_of_indirection -= 1;
+            //Recursively call the same function on the info object 
+            //with the decremented level of indirection
+            process_indirect_directory(info);
+        }
+        //Otherwise, we just process the object and read data into blocks_or_entries
+        read_fs_offset(blocks_or_entries, block_size, block_size * info.block_num);
+        //Set entry to point to the array allocated to by blocks_or_entries
+        entry = (struct ext2_dir_entry *) blocks_or_entries;
+        //Using the same logic described in process_directory
+        while(entry->file_type && (info.logical_block_offset < info.file_size)){
+             //Create a character array to save the file name for this file 
+            //File name can be in the range of 0-255
+            char file[DIR_NAME_LEN + 1];
+            //The memcpy() function copies n bytes from memory area src to memory area dest.
+            //void *memcpy(void *dest, const void *src, size_t n);
+            //Copy the file name of the entry into the character array file_name
+            memcpy(file,entry->name,entry->name_len);
+            //Add zero byte to the end of the file name
+            file[entry->name_len] = '\0';
+            //Check the entry's inode number
+            //A value of 0 indicates that the entry is not used. 
+            if (entry->inode != 0){
+                //Write CSV styled output 
+                printf("%s,%u,%u,%u,%u,%u,'%s'\n", 
+                       "DIRENT",
+                       (unsigned int) info.parent_inode_num,
+                       info.logical_block_offset;
+                       entry->inode,
+                       entry->rec_len,
+                       entry->name_len,
+                       file);
+            }
+            //rec_len -> displacement to the next directory entry from the start of the current directory entry.
+            info.logical_block_offset += entry->rec_len;
+            //Update entry
+            entry = (void *)entry + entry->rec_len;
+        }
+    }
+}
+
+//Function to process directory contents
+void process_directory(Inode *I) {
+    //Use the ext2_dir_entry struct defined in ext2_fs.h to create an instance of a dir struct.
+    struct ext2_dir_entry *entry = NULL;
+    //Save superblock's block size
+    unsigned int block_size = super_info.block_size;
+    //Initialize a character array of the block size saved in the super block instance.
+    unsigned char entries[block_size];
+    //Create a local variable representing the logical byte offset
+    unsigned int logical_byteoff = 0;
+    //Initialize an instance of a Traversal object
+    Traversal info;
+    //Get parent's Inode number and save it 
+    info.parent_inode_num = I->num;
+    //Get Inode's file size and save it in our Traveral object's file size member
+    info.file_size = I->file_size;
+    //Go through all of the 15 block addresses 
+    for(unsigned int i=0; i < 15; i++) {
+        //If block address is 0, it is not a valid directory entry
+        if (I->block_addresses[i] == 0)
+            return;
+        //13th, 14th and 15th blocks are indirect blocks so process them separately 
+        //Primarily single, double and triple indirect blocks
+        if (i >= 12) {
+            //Update logical block offset member of the Traversal object
+            info.logical_block_offset = logical_byteoff;
+            //Determines if this is a single, double or triple indirect block
+            info.level_of_indirection = i-11;
+            //Call helper method to process indirect entry
+            process_indirect_directory(info);
+        }
+        //Read data into buffer from the given offset
+        read_fs_offset(entries, block_size, block_size * I->block_addresses[i]);
+        //Set entry to the update entries character array
+        //Need to type cast because entry is a pointer to a struct of type ext2_dir_entry
+        entry = (struct ext2_dir_entry *) entries;
+        /*  File Types
+            EXT2_FT_UNKNOWN	    0	Unknown File Type
+            EXT2_FT_REG_FILE	1	Regular File
+            EXT2_FT_DIR	        2	Directory File
+            EXT2_FT_CHRDEV	    3	Character Device
+            EXT2_FT_BLKDEV	    4	Block Device
+            EXT2_FT_FIFO	    5	Buffer File
+            EXT2_FT_SOCK	    6	Socket File
+            EXT2_FT_SYMLINK	    7	Symbolic Link      */
+        //While we don't see an unknown file type AND the logical byte offset is 
+        //less than the file size for this file
+        while(entry->file_type && (logical_byteoff < I->file_size)) {
+            //Create a character array to save the file name for this file 
+            //File name can be in the range of 0-255
+            char file[DIR_NAME_LEN + 1];
+            //The memcpy() function copies n bytes from memory area src to memory area dest.
+            //void *memcpy(void *dest, const void *src, size_t n);
+            //Copy the file name of the entry into the character array file_name
+            memcpy(file,entry->name,entry->name_len);
+            //Add zero byte to the end of the file name
+            file[entry->name_len] = '\0';
+            //Check the entry's inode number
+            //A value of 0 indicates that the entry is not used. 
+            if (entry->inode != 0){
+                //Write CSV styled output 
+                printf("%s,%u,%u,%u,%u,%u,'%s'\n", 
+                       "DIRENT",
+                       (unsigned int) I->num,
+                       logical_byteoff;
+                       entry->inode,
+                       entry->rec_len,
+                       entry->name_len,
+                       file);
+            }
+            //rec_len -> displacement to the next directory entry from the start of the current directory entry.
+            logical_byteoff += entry->rec_len;
+            //Update entry
+            entry = (void *)entry + entry->rec_len;
+        }
+    }
+}
+
 //Helper function for inodes_summary that allows processing
 void inodes_summary_helper(unsigned long offset, unsigned long group_num, unsigned long inodes_per_group, unsigned long inode_index) {
     //Initialize an instance of an inode
@@ -661,8 +828,9 @@ void inodes_summary_helper(unsigned long offset, unsigned long group_num, unsign
             fflush(stdout);
         }
         //Now, check if the file type passed in is actually a directory
-        if (I.type == 'd'){
-            
+        if (I.type == 'd') {
+            //If it is, call our helper method to scan the directory contents for this Inode instance. 
+            process_directory(&I);
         }
     }
 }
