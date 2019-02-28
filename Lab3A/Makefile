@@ -1,6 +1,7 @@
 #NAME: Arnav Garg
 #UID: 304911796
 #EMAIL ID: arnavgrg@ucla.edu
+#SLIPDAYS: 2
 
 .SILENT:
 

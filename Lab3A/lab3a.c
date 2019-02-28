@@ -2,6 +2,7 @@
 NAME: Arnav Garg
 UID: 304911796
 EMAIL: arnavgrg@ucla.edu
+SLIPDAYS: 2;
 */
 
 //Libraries
@@ -43,6 +44,17 @@ const unsigned int BG_FIRST_INODE_BLOCK_PTR_SIZE = 4; // bg_inode_table
 const unsigned int BG_FREE_BLOCKS_COUNT_SIZE = 2;     // bg_free_blocks_count
 const unsigned int BG_FREE_INODES_COUNT_SIZE = 2;     // bg_free_inodes_count
 
+//Save size/offset values so we don't need to keep redefining them for individual inodes
+const unsigned int I_MODE = 2;          //i_mode
+const unsigned int I_LINKS_COUNT = 2;   //i_links_count
+const unsigned int I_ATIME = 4;         //i_atime
+const unsigned int I_CTIME = 4;         //i_ctime
+const unsigned int I_MTIME = 4;         //i_mtime
+const unsigned int I_UID = 2;           //i_uid
+const unsigned int I_GID = 2;           //i_gid
+const unsigned int I_SIZE = 4;          //i_size
+const unsigned int I_BLOCKS = 4;        //i_blocks
+
 //Save buffer size globally
 const unsigned int BUFFER_SIZE = 64; 
 
@@ -69,6 +81,22 @@ typedef struct filesys_group_info {
     unsigned int first_inode_block_num; //Block number of first block of inodes in this group
 } Group;
 
+//Struct to hold all the data in each inode table
+typedef struct inode {
+    unsigned long num; //Unique inode number
+    char type; //File type
+    unsigned int mode; //Mode of the file
+    unsigned int owner; //Permissions/Owner
+    unsigned int group; //Group
+    unsigned int link_count; //Total number of link
+    char *last_inode_change; //Time of last I-node change
+    char *last_modification; //Time of last modification
+    char *last_access; //Time of last access
+    unsigned int file_size; //File Size
+    unsigned int num_512_byte_blocks; //Number of (512 byte) blocks of disk space used
+    unsigned int block_addresses[15]; //For the 15 block addresses that follow
+} Inode;
+
 //Other global variables
 //Keep track of file descriptor when disk image file is opened
 static int di_fd = -1;
@@ -80,14 +108,22 @@ Info super_info;
 Group *group_descriptor_array = NULL;
 //Variable to store total number of groups in the image
 static unsigned int num_groups = -1;
-//Variable to process bitmap
+//Variable to process block bitmap
 short* bg_bitmap = NULL;
+//Variable to process inode bitmap
+short* i_bitmap = NULL;
 
 //Free all memory to prevent memory leaks
 void free_memory() {
     free(buf);
     free(group_descriptor_array);
     free(bg_bitmap);
+    free(i_bitmap);
+    //Reassign them to null to prevent dangling pointers issue
+    buf = NULL;
+    group_descriptor_array = NULL;
+    bg_bitmap = NULL;
+    i_bitmap = NULL;
 }
 
 //Helper method to write flush stream and exit with status 1
@@ -237,7 +273,8 @@ void read_superblock() {
     offset = 88;
     fill_field(&super_info.inode_size, buf, S_INODE_SIZE, S_OFFSET + offset);
     //In revision 0, this value must always be 128
-    //In revision one, this must be a perfect power of 2 and must be smaller or equal to the block size (1<<s_log_block_size).    
+    /*In revision one, this must be a perfect power of 2 and must be smaller or equal to the 
+    block size (1<<s_log_block_size).*/    
     //Check if it is not a perfect power of 2 since 128 is also a perfect power of 2
     if ( !((super_info.inode_size & (super_info.inode_size - 1)) == 0) ) {
             fprintf(stderr, "Invalid inode size %u, not a power of 2\n", super_info.inode_size);
@@ -369,7 +406,7 @@ Group read_group_block_descriptors(unsigned int group_number, const unsigned int
     return g_block_info;
 }
 
-//Helper function to process the bitmap for process_free_block
+//Helper function to process the bitmap for process_freeblocks and process_freeinodes
 short* process_bitmap(unsigned long bits_long, off_t offset) {
     //Malloc enough memory to store all the bits in the bitmap
     short* temp = malloc(sizeof(short) * bits_long);
@@ -421,6 +458,224 @@ void process_freeblocks(unsigned long num_blocks, unsigned long block_bitmap_off
     }
 }
 
+//Function to process free inodes in each of the group
+void process_freeinodes(unsigned long num_inodes, unsigned long inode_bitmap_offset) {
+    //Same as block bitmap, except that each bit represents an inode in the inode table
+    //rather than a block.
+    i_bitmap = process_bitmap(num_inodes, inode_bitmap_offset);
+    //Go through each of the bits in the bitmap
+    for (unsigned long i=0; i < num_inodes; i++) {
+        //If the bit is 0 (free), then we want to write the CSV styled line
+        if (i_bitmap[i] == 0) {
+            printf("IFREE,%u\n",(unsigned int)i+1);
+            fflush(stdout);
+        }
+    }
+}
+
+//Helper method to output CSV styled content for inode output
+void write_inode_output(Inode *I) {
+    printf("%s,%lu,%c,%o,%u,%u,%u,%s,%s,%s,%u,%u,",
+        "INODE",
+        I->num,
+        I->type,
+        I->mode,
+        I->owner,
+        I->group,
+        I->link_count,
+        I->last_inode_change,
+        I->last_modification,
+        I->last_access,
+        I->file_size,
+        I->num_512_byte_blocks);
+    fflush(stdout);
+}
+
+//Return the time in GMT format from 32bit value
+void calculate_gmt(time_t *t, char* time_s) {
+    //Calculate size of the required string
+    size_t sizeof_time = strlen("mm/dd/yy hh:mm:ss");
+    //clear the character buffer
+    bzero(time_s, sizeof_time);
+    //struct tm in <time.h>
+    //Time structure containing a calendar date and time broken down into its components.
+    /*
+    int    tm_sec   seconds [0,61]
+    int    tm_min   minutes [0,59]
+    int    tm_hour  hour [0,23]
+    int    tm_mday  day of month [1,31]
+    int    tm_mon   month of year [0,11]
+    int    tm_year  years since 1900
+    */
+    //Allocate enough memory to store an object of the correct size
+    struct tm *time_ = malloc(sizeof(struct tm));
+    //Check if malloc failed. If yes, write to stderr and exit
+    if (!time_) {
+        fprintf(stderr, "Malloc for struct tm in calculate_gmt failed\n");
+        exit_2();
+    }
+    // gmtime_r - convert a time value to a broken-down UTC time
+    //The gmtime_r() function converts the calendar time pointed to by clock into a broken-down 
+    //time expressed as Coordinated Universal Time (UTC). The broken-down time is stored in the structure referred to by result.
+    gmtime_r(t, time_);
+    //Check if it is still null
+    if (!time_) {
+        fprintf(stderr, "Error while using gmtime_r, or UTC not available\n");
+        exit_2();
+    }
+    //The strftime() function formats the broken-down time tm according to
+    //the format specification format and places the result in the
+    //character array s of size max.
+    size_t n_bytes = strftime(time_s, sizeof_time + 1, "%m/%d/%y %H:%M:%S", time_);
+    //If it didn't write the number of bytes required successfully
+    if (sizeof_time != n_bytes){
+        fprintf(stderr, "Incorrect number of bytes written to required time string.\n");
+        exit_2();
+    }
+    //Free memory to prevent memory leaks
+    free(time_);
+    //Reset to NULL to prevent dangling pointers issue
+    time_ = NULL;
+}
+
+//Helper function for inodes_summary that allows processing
+void inodes_summary_helper(unsigned long offset, unsigned long group_num, unsigned long inodes_per_group, unsigned long inode_index) {
+    //Initialize an instance of an inode
+    Inode I;
+    //Reset/Clear buffer so that it no longer has memory
+    bzero(buf, BUFFER_SIZE);
+    //Initialize the size of time string for atime, ctime, mtime
+    size_t sizeof_date = strlen("mm/dd/yy hh:mm:ss");
+    
+    //Update mode value for the given Inode
+    fill_field(&I.mode, buf, I_MODE, offset);
+    
+    //Offset + 26 because i_links_count starts at offset of 26
+    fill_field(&I.link_count, buf, I_LINKS_COUNT, offset+26);
+    //We want to check if the mode and link counts aren't 0
+    //If this is true, we know we retrieved those values correctly
+    if (I.mode != 0 && I.link_count != 0) {
+        //Update inode number
+        I.num = (inodes_per_group * group_num) + (inode_index + 1);
+        
+        //Update file type
+        //This can be:
+            //'d' -> directory
+            //'f' -> file
+            //'s' -> symbolic link
+            //'?' -> anything else
+        if ((I.mode & 0x4000) == 0x4000)
+            I.type = 'd';
+        else if ((I.mode & 0x8000) == 0x8000)
+            I.type = 'f';
+        else if ((I.mode & 0xA000) == 0xA000)
+            I.type = 's';
+        else 
+            I.type = '?';
+        
+        //Update mode to represent lower 16 bits
+        //16bit value used to indicate the format of the described file and the access rights. 
+        I.mode = I.mode & 0xFFF;
+        
+        //Update group
+        //Offset + 24 because i_gid starts at offset of 24
+        fill_field(&I.group, buf, I_GID, offset+24);
+        
+        //Update owner
+        //Offset + 2 because i_uid starts at offset of 2
+        fill_field(&I.owner, buf, I_UID, offset+2);
+
+        //Update last access time
+        time_t last_access = 0;
+        I.last_access = malloc(sizeof_date + 1);
+        //If malloc fails
+        if (!I.last_access) {
+            fprintf(stderr, "Error creating memory while calculating last access time\n");
+            exit_2();
+        }
+        //Offset + 8 because i_atime starts at offset of 8
+        //Store the returned value in last_access
+        fill_field(&last_access, buf, I_ATIME, offset + 8);
+        //Call calculate_gmt to convert 32bit value to required string
+        calculate_gmt(&last_access, I.last_access);
+        
+        //Update time of last inode chane
+        time_t last_change_in_inode = 0;
+        //Allocate enough space to store the time string
+        I.last_inode_change = malloc(sizeof_date + 1);
+        //If malloc fails, return error
+        if (!I.last_inode_change) {
+            fprintf(stderr, "Error creating memory while calculating last inode change time\n");
+            exit_2();
+        } 
+        //Offset + 12 because i_ctime starts at offset of 12
+        //Store the returned value in last_change_in_inode
+        fill_field(&last_change_in_inode, buf, I_CTIME, offset + 12);
+        //Call calculate_gmt to convert 32bit value to required string
+        calculate_gmt(&last_change_in_inode, I.last_inode_change);
+        
+        //Update last modified time
+        time_t last_mod = 0;
+        I.last_modification = malloc(sizeof_date + 1);
+        //If malloc fails
+        if (!I.last_modification) {
+            fprintf(stderr, "Error creating memory while calculating last modification time\n");
+            exit_2();
+        } 
+        //Offset + 16 because i_ctime starts at offset of 16
+        //Store the returned value in last_mod
+        fill_field(&last_mod, buf, I_MTIME, offset + 16);
+        calculate_gmt(&last_mod, I.last_modification);
+
+        //Update file size
+        //Offset + 4 because i_size starts at offset of 4
+        fill_field(&I.file_size,buf, I_SIZE ,offset + 4);
+
+        //Update number of 512 byte blocks
+        //Offset + 28 because i_blocks starts at offset of 28
+        fill_field(&I.num_512_byte_blocks, buf, I_BLOCKS, offset + 28);
+
+        //Write inode output
+        write_inode_output(&I);
+
+        /*For ordiary files (type 'f') and directories (type 'd') the next fifteen fields are block 
+        addresses (decimal, 12 direct, one indirect, one double indirect, one triple indirect).*/
+        for (int i=0; i < 15; i++) {
+            fill_field(&I.block_addresses[i], buf, 4, offset + 40 + (i * 4));
+        }
+        /*If the file length is less than or equal to the size of the block pointers (60 bytes) the 
+        file will contain zero data blocks, and the name is stored in the space normally occupied by 
+        the block pointers. If this is the case, the fifteen block pointers should not be printed. If, 
+        however, the file length is greater than 60 bytes, print out the fifteen block nunmbes as for 
+        ordinary files and directories.*/
+        //Prints last 15 fields
+        //Check if file type does not equal 's'
+        if (I.type != 's' || (I.type == 's' && I.file_size > 60)) {
+            //Process first 14 elements this way
+            for (int i=0; i < 14; i++) {
+                printf("%u,", I.block_addresses[i]);
+                fflush(stdout);
+            }
+            //Process last element and add a new line character where necessary
+            printf("%u\n", I.block_addresses[14]);
+            fflush(stdout);
+        }
+        //Now, check if the file type passed in is actually a directory
+        if (I.type == 'd'){
+            
+        }
+    }
+}
+
+//Function to print out summary of used inodes in each group
+void inodes_summary(off_t i_table_offset, unsigned long group_num, unsigned long inodes_per_group, unsigned long inode_size) {
+    //Go through all the inodes in this group
+    for (unsigned int i=0; i < inodes_per_group; i++) {
+        //Offset gets updated by increments of the size of the inode so we can move to the next one
+        inodes_summary_helper(i_table_offset + (i*inode_size), group_num, inodes_per_group, i);
+    }
+}
+
 //Main function
 int main(int argc, char* argv[]) {
     //Make sure argc is 2 so one file (the image) is passed in
@@ -445,13 +700,24 @@ int main(int argc, char* argv[]) {
         group_descriptor_array[i] = read_group_block_descriptors(i, (GROUP_DESC_BLOCK_OFFSET + (i * GROUP_DESC_TABLE_SIZE)));
     }
     //Initialize local variables for this for loop
+    unsigned int blk_size;
     unsigned long num_blocks_in_group;
     unsigned long block_bitmap_offset;
+    unsigned long num_inodes_in_group;
+    unsigned long inode_bitmap_offset;
     //Go through each of the block groups 
     for (unsigned int i=0; i < num_groups; i++) {
+        blk_size = super_info.block_size;
         num_blocks_in_group = group_descriptor_array[i].blocks_count;
-        block_bitmap_offset = group_descriptor_array[i].block_bitmap_num * super_info.block_size;
+        block_bitmap_offset = group_descriptor_array[i].block_bitmap_num * blk_size;
+        //Call function to process free blocks for this group
         process_freeblocks(num_blocks_in_group, block_bitmap_offset);
+        num_inodes_in_group = group_descriptor_array[i].inodes_count;
+        inode_bitmap_offset = group_descriptor_array[i].inode_bitmap_num * blk_size;
+        //Call function to process free inodes for this group
+        process_freeinodes(num_inodes_in_group, inode_bitmap_offset);
+        //Call function to help print inode summary for this group
+        inodes_summary(group_descriptor_array[i].first_inode_block_num * blk_size, i, num_inodes_in_group, super_info.inode_size);
     }
     //Free memory before exiting
     free_memory();
