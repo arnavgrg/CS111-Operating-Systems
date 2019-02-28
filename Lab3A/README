@@ -3,3 +3,29 @@ UID: 304911796
 EMAIL ID: arnavgrg@ucla.edu
 SLIPDAYS: 2
 
+Files:
+  1. README 
+     The README contains a description of all the files in the zipped tarball.
+     In particular, it describes the contents of the Makefile and any C/C++ 
+     header and source files.
+     
+  2. Makefile
+     The Makefile has 3 targets - default, dist and clean. The default target 
+     compiles the C source files to create an executable calld lab3a. It
+     compiles these files with a the -Wall and -Wextra options. Make dist 
+     creates the required compressed tarball file called lab3a-304911796.tar.gz.
+     The clean target removes all object and executable files, as well as any
+     compressed tarball files.
+     
+  3. lab3a.c
+     This file contains all the required code for this project. This file 
+     explores an EXT2 file system. It takes one argument - the name of the image
+     as input and returns an analysis on the contents in the image's super block,
+     block group descriptor table, free blocks and inodes per group, used inodes
+     per group, directories and indirect block references. This is done through
+     a bunch of functions and helper functions, where most of the work in done 
+     outside of main.
+  
+  4. ext2_fs.h
+     A slightly simplified version of the Linux header file that defines the format 
+     of the EXT2 file system.
