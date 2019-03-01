@@ -6,7 +6,7 @@ SLIPDAYS: 3
 Files:
   1. README 
      The README contains a description of all the files in the zipped tarball.
-     In particular, it describes the contents of the Makefile and any C/C++ 
+     In particular, it describes the contents of the Makefile and any C
      header and source files.
      
   2. Makefile
@@ -25,7 +25,7 @@ Files:
      per group, directories and indirect block references. This is done through
      a bunch of functions and helper functions, where most of the work in done 
      outside of main.
-  
+   
   4. ext2_fs.h
      A slightly simplified version of the Linux header file that defines the format 
      of the EXT2 file system.

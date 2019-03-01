@@ -160,6 +160,8 @@ void exit_2() {
 
 //Function to check # of arguments passed into the CLI
 void check_arguments(int args) {
+    //Number of arguments must be 2
+    //If not, write to stderr and exit with code 1
     if (args != 2) {
         fprintf(stderr, "Need to pass in exactly one disk image file\n");
         exit_1();
@@ -171,9 +173,10 @@ int read_file(char* filename) {
     //Open the file in read only mode
     di_fd = open(filename, O_RDONLY);
     //If failure to open the file
+    //This is counted as a bad argument, so exit with code 1
     if (di_fd < 0) {
         fprintf(stderr, "Error opening file system image - %s\n", filename);
-        exit_2();
+        exit_1();
     }
     //Create instance of stat struct to determine info about the file
     struct stat st;
@@ -183,6 +186,7 @@ int read_file(char* filename) {
         fprintf(stderr, "File size is 0. Corrupted disk image file.\n");
         exit_2();
     }
+    //Return file descriptor
     return di_fd;
 }
 
@@ -195,7 +199,7 @@ void read_fs_offset(void *buf, size_t count, off_t offset) {
     ssize_t data = pread(di_fd, buf, count, offset);
     //Check if sys call failed
     if (data < 0){
-        fprintf(stderr, "Failure reading from file system image: %d - %s", errno, strerror(errno));
+        fprintf(stderr, "Failure reading from file system image: %d - %s\n", errno, strerror(errno));
         exit_2();
     }
     //Check if number of bytes read in is equal to the number of bytes specified
@@ -305,11 +309,6 @@ void read_superblock() {
     fill_field(&super_info.blocks_per_group, buf, S_BLOCKS_PER_GROUP_SIZE, S_OFFSET + offset);
     //Block count should be lower or equal to (s_blocks_per_group * number of block groups)
     //Therefore, total number of blocks must be a multiple of number of blocks in every group
-    /*if (super_info.blocks_count % super_info.blocks_per_group) {
-        fprintf(stderr, "Invalid blocks per group %u or blocks count %u\n", super_info.blocks_per_group, 
-                super_info.blocks_count);
-        exit_2();
-    }*/
 
     //Update Inodes per group
     //This is the offset where the 4bytes of s_inodes_per_group are stored
@@ -337,7 +336,7 @@ void initialize_group_descriptor_array() {
     //Allocate enough memory to hold num_groups Groups in array
     group_descriptor_array = malloc(sizeof(Group) * num_groups);
     //Check if malloc failed
-    if (!group_descriptor_array){
+    if (!group_descriptor_array) {
         fprintf(stderr, "Failed to allocate memory for block group descriptor array\n");
         exit_2();
     }
@@ -672,6 +671,7 @@ void process_directory(Inode *I) {
         //Set entry to the update entries character array
         //Need to type cast because entry is a pointer to a struct of type ext2_dir_entry
         entry = (struct ext2_dir_entry *) entries;
+        
         /*  File Types
             EXT2_FT_UNKNOWN	    0	Unknown File Type
             EXT2_FT_REG_FILE	1	Regular File
@@ -743,8 +743,9 @@ void process_indirect_block(Traversal info) {
     memset(block_data,0,sizeof(block_data));
     //Read data into buffer from the offset
     read_fs_offset(block_data, block_size, info.parent_block_num * block_size);
+    
     //Go through all the elements in the block data array one by one
-    for (u_int32_t i = 0; i < num_references; i++){
+    for (u_int32_t i = 0; i < num_references; i++) {
         //See if the ith element in block data is 0
         if (block_data[i] == 0) {
             switch (info.level_of_indirection){
@@ -781,11 +782,19 @@ void process_indirect_block(Traversal info) {
         //Call method to print out info
         write_indirect_block_output(&info);
 
+        //If the level of indirection is one, we want to increment the offset by 1
+        //Essentially serves as the base case for the recursive call
         if (info.level_of_indirection == 1)
             info.logical_block_offset += 1;
+        
+        //However, if the level of indirection is greater than 1, we want to decrement
+        //the level of indirection 
+        //After we finish processing the block, we want to decrement indirection so
+        //we eventually hit our base case
         else if (info.level_of_indirection > 1) {
             info.level_of_indirection -= 1;
             info.parent_block_num = info.block_num;
+            //Call same function recursively until we hit our base case
             process_indirect_block(info);
         }
     }
@@ -896,6 +905,7 @@ void inodes_summary_helper(unsigned long offset, unsigned long group_num, unsign
         for (int i=0; i < 15; i++) {
             fill_field(&I.block_addresses[i], buf, 4, offset + 40 + (i * 4));
         }
+        
         /*If the file length is less than or equal to the size of the block pointers (60 bytes) the 
         file will contain zero data blocks, and the name is stored in the space normally occupied by 
         the block pointers. If this is the case, the fifteen block pointers should not be printed. If, 
@@ -913,6 +923,7 @@ void inodes_summary_helper(unsigned long offset, unsigned long group_num, unsign
             printf("%u\n", I.block_addresses[14]);
             fflush(stdout);
         }
+        
         //Now, check if the file type passed in is actually a directory
         if (I.type == 'd') {
             //If it is, call our helper method to scan the directory contents for this Inode instance. 
@@ -921,6 +932,7 @@ void inodes_summary_helper(unsigned long offset, unsigned long group_num, unsign
 
         //Save block size seen in superblock
         unsigned int block_size = super_info.block_size;
+        
         //Initialize an instance of Traversal
         Traversal info;
         //Update level of indirection
@@ -931,12 +943,14 @@ void inodes_summary_helper(unsigned long offset, unsigned long group_num, unsign
         info.logical_block_offset = 12;
         //Update parent block number
         info.parent_block_num = I.block_addresses[12];
+        
         //Single indirect block
         if (info.parent_block_num != 0)
             //Don't need to make any updates in this case since we already did
             //before this if statement
             //Call this helper method to scan the indirect block
             process_indirect_block(info);
+        
         //Double indirect block
         if (I.block_addresses[13] != 0){
             //Need to Increment level of indirection
@@ -1003,6 +1017,7 @@ int main(int argc, char* argv[]) {
     unsigned long inode_bitmap_offset;
     //Go through each of the block groups 
     for (unsigned int i=0; i < num_groups; i++) {
+        //Save block size in a temporary variable
         blk_size = super_info.block_size;
         num_blocks_in_group = group_descriptor_array[i].blocks_count;
         block_bitmap_offset = group_descriptor_array[i].block_bitmap_num * blk_size;

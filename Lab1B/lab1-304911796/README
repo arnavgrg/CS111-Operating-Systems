@@ -1,8 +1,0 @@
-NAME: Arnav Garg
-EMAIL ID: arnavgrg@ucla.edu
-UID: 304911796
-
-Test1: Check if rdonly works.
-Test2: Check if wronly works.
-Test3: Check if command works
-Test4: Check if input/output redirection works correctly.
