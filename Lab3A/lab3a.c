@@ -1,8 +1,8 @@
 /* 
 NAME: Arnav Garg
-UID: 304911796
+ID: 304911796
 EMAIL: arnavgrg@ucla.edu
-SLIPDAYS: 2;
+SLIPDAYS: 3
 */
 
 //Libraries
@@ -83,6 +83,8 @@ typedef struct filesys_superblock_info {
     unsigned int blocks_per_group; //Total number of blocks per group
     unsigned int inodes_per_group; //Total number of inodes per group
     unsigned int first_inode; //First non-reserved inode
+    unsigned int logical_block_offset_doubly_indirect; //offset for doubly indirect block
+    unsigned int logical_block_offset_triply_indirect; //offset for triply indirect block
 } Info;
 
 //Struct to hold all the data in each group described in the block descriptor table
@@ -321,6 +323,13 @@ void read_superblock() {
 
     //Call helper method to write data to stdout
     write_superblock_output();
+
+    //Update logical block offset for double indirect blocks
+    super_info.logical_block_offset_doubly_indirect = super_info.block_size / sizeof(u_int32_t);
+
+    //Update logical block offset for triply indirect blocks
+    super_info.logical_block_offset_triply_indirect = (super_info.logical_block_offset_doubly_indirect) 
+        * (super_info.logical_block_offset_doubly_indirect);
 }
 
 //Helper method to initialize a block descriptor array with enough memory
@@ -613,7 +622,7 @@ void process_indirect_directory(Traversal info){
                 printf("%s,%u,%u,%u,%u,%u,'%s'\n", 
                        "DIRENT",
                        (unsigned int) info.parent_inode_num,
-                       info.logical_block_offset;
+                       info.logical_block_offset,
                        entry->inode,
                        entry->rec_len,
                        entry->name_len,
@@ -691,7 +700,7 @@ void process_directory(Inode *I) {
                 printf("%s,%u,%u,%u,%u,%u,'%s'\n", 
                        "DIRENT",
                        (unsigned int) I->num,
-                       logical_byteoff;
+                       logical_byteoff,
                        entry->inode,
                        entry->rec_len,
                        entry->name_len,
@@ -701,6 +710,83 @@ void process_directory(Inode *I) {
             logical_byteoff += entry->rec_len;
             //Update entry
             entry = (void *)entry + entry->rec_len;
+        }
+    }
+}
+
+//Helper method to write CSV styled output to stdout
+void write_indirect_block_output(Traversal *info) {
+    printf("%s,%lu,%u,%u,%u,%u\n",
+            "INDIRECT",
+            info->parent_inode_num,
+            info->level_of_indirection,
+            info->logical_block_offset,
+            info->parent_block_num,
+            info->block_num);
+    fflush(stdout);
+}
+
+//Method to help process indirect blocks
+void process_indirect_block(Traversal info) {
+    //Save block size
+    unsigned int block_size = super_info.block_size;
+    //Initialize variables
+    u_int32_t num_references;
+    //Calculate num_entries 
+    num_references = block_size/sizeof(u_int32_t);
+    //Initial an array with number of elements = num_entries
+    unsigned int block_data[num_references];
+    //void *memset(void *s, int c, size_t n);
+    /*The memset() function fills the first n bytes of the memory area pointed to by s with the 
+     constant byte c.*/
+    //Initialize values in block_data to 0
+    memset(block_data,0,sizeof(block_data));
+    //Read data into buffer from the offset
+    read_fs_offset(block_data, block_size, info.parent_block_num * block_size);
+    //Go through all the elements in the block data array one by one
+    for (u_int32_t i = 0; i < num_references; i++){
+        //See if the ith element in block data is 0
+        if (block_data[i] == 0) {
+            switch (info.level_of_indirection){
+                //Case 1: Level of indirection is just 1
+                case 1:
+                    //In this case, we want to increment the logical block offset by 1
+                    info.logical_block_offset += 1;
+                    break;
+                //Case 2: Level of indirection is 2
+                case 2:
+                    //In this case, we want to set it to the value we found in the superblock for
+                    //the doubly indirect block
+                    info.logical_block_offset += super_info.logical_block_offset_doubly_indirect;
+                    break;
+                //Case 3: Level of indirection is 3
+                case 3:
+                    //In this case, we want to set it to the value we found in the superblock for
+                    //the triply indirect block
+                    info.logical_block_offset += super_info.logical_block_offset_triply_indirect;
+                    break;
+                default:
+                    //If the level of indirectio is neither of the three cases defined above, there 
+                    //was clear some mistake or flaw somewhere. Write to stderr and exit with status 2
+                    fprintf(stderr, "Unrecognised level of indirection found\n");
+                    exit_2();
+                    break;
+            }
+            //Move to the next iteration of the for loop without processing further
+            continue;
+        }
+
+        //Update info's block number
+        info.block_num = block_data[i];
+        //Call method to print out info
+        write_indirect_block_output(&info);
+
+        if (info.level_of_indirection == 1)
+            info.logical_block_offset += 1;
+        else if (info.level_of_indirection > 1) {
+            info.level_of_indirection -= 1;
+            info.parent_block_num = info.block_num;
+            process_indirect_block(info);
         }
     }
 }
@@ -831,6 +917,48 @@ void inodes_summary_helper(unsigned long offset, unsigned long group_num, unsign
         if (I.type == 'd') {
             //If it is, call our helper method to scan the directory contents for this Inode instance. 
             process_directory(&I);
+        }
+
+        //Save block size seen in superblock
+        unsigned int block_size = super_info.block_size;
+        //Initialize an instance of Traversal
+        Traversal info;
+        //Update level of indirection
+        info.level_of_indirection = 1;
+        //Update parent inode num
+        info.parent_inode_num = I.num;
+        //Update logical block offset
+        info.logical_block_offset = 12;
+        //Update parent block number
+        info.parent_block_num = I.block_addresses[12];
+        //Single indirect block
+        if (info.parent_block_num != 0)
+            //Don't need to make any updates in this case since we already did
+            //before this if statement
+            //Call this helper method to scan the indirect block
+            process_indirect_block(info);
+        //Double indirect block
+        if (I.block_addresses[13] != 0){
+            //Need to Increment level of indirection
+            info.level_of_indirection++;
+            //Need to change parent_block_num
+            info.parent_block_num = I.block_addresses[13];
+            //Need to update logical block offset
+            info.logical_block_offset += block_size/sizeof(unsigned int);
+            //Call method to scan the indirect block
+            process_indirect_block(info);
+        }
+        //Triple indirect block
+        if (I.block_addresses[14] != 0) {
+            //Need to Increment level of indirection
+            info.level_of_indirection++;
+            //Need to change parent_block_num
+            info.parent_block_num = I.block_addresses[14];
+            //Need to update logical block offset
+            //Need to raise it to the power 2, so just multiple by itself in this case
+            info.logical_block_offset += (block_size/sizeof(unsigned int)) * (block_size/sizeof(unsigned int));
+            //Call helper method to scan the indirect block
+            process_indirect_block(info);
         }
     }
 }
