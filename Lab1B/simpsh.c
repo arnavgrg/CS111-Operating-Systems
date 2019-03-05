@@ -308,12 +308,12 @@ int main(int argc, char* argv[]){
                     commandErrorFlag = 1;
                 }
                 //Check if output file descriptor is valid
-                if (output < 0 || output >= numfiles || fileds[input] < 0) {
+                if (output < 0 || output >= numfiles || fileds[output] < 0) {
                     //If it is invalid, set commandErrorFlag to 1
                     commandErrorFlag = 1;
                 }
                 //Check if error file descriptor is valid
-                if (error < 0 || error >= numfiles || fileds[input] < 0) {
+                if (error < 0 || error >= numfiles || fileds[error] < 0) {
                     //If it is invalid, set commandErrorFlag to 1
                     commandErrorFlag = 1;
                 }
