@@ -1,3 +1,24 @@
 NAME: Arnav Garg
 UID: 304911796
 EMAIL: arnavgrg@ucla.edu
+SLIPDAYS: 1
+
+Files:
+    Makefile:
+       The Makefile contains 3 targets - default, dist and clean. The default target helps 
+       build/create a python executable called lab3b. The dist target creates a compressed
+       tarball/zip containing all the required files (README, Makfile and Lab3b.py). The
+       clean target removes all tarballs and executables (lab3b).
+    
+    Lab3b.py:
+       This is a python program to analyze a file system summary (a .csv file) and 
+       report on all discovered inconsistencies. It reports inconsistencies on blocks, 
+       inodes allocations and directories.
+       
+    README:
+       The README file contains a description of all of the files in the compressed Tarball.
+      
+    Testing:
+       The executable lab3b was tested on the sanity script provided for this lab. In addition,
+       it was tested on samples found on http://web.cs.ucla.edu/classes/cs111/Samples/ to verify
+       that all inconsistencies are correctly accounted for.
