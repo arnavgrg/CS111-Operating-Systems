@@ -1,8 +1,8 @@
-#NAME: Arnav Garg
-#ID: 304911796
-#EMAIL: arnavgrg@ucla.edu
+//NAME: Arnav Garg
+//ID: 304911796
+//EMAIL: arnavgrg@ucla.edu
 
-#Libraries
+//Libraries
 #include <stdio.h>
 #include <getopt.h>
 #include <poll.h>
@@ -84,7 +84,7 @@ void get_time(char *real_time){
         exit(1);
     }
     strftime(real_time, 9, "%H:%M:%S", localTimeNow);
-    free(localTimeNow);
+    //free(localTimeNow);
 }
                      
 //Main function

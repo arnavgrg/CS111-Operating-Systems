@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
-#NAME: Arnav Garg
-#ID: 304911796
-#EMAIL: arnavgrg@ucla.edu
+#NAME: Arnav Garg, Gautam Nambiar
+#ID: 304911796, 004933460
+#EMAIL: arnavgrg@ucla.edu, gautam_nambiar@yahoo.com
 
 #To read/parse through the CSV
 import csv

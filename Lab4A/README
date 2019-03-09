@@ -1,0 +1,31 @@
+NAME: Arnav Garg
+EMAIL: arnavgrg@ucla.edu
+ID: 304911796
+
+Serial Number: BBGW16062338
+MAC: 2CF7F10650C4
+
+Files:
+    1. my_beaglebone.jpg: 
+        A selfie of me holding my Beaglebone showing the front end of the board.
+    
+    2. connected.png: 
+        A screenshot of a USB terminal command session connected to my system, showing that I gave it a 
+        name and configured network access.
+    
+    3. copy.png:
+        A screen shot from a local session in which I copied a hello world program from my laptop/desktop 
+        to my Beaglebone.
+    
+    4. build_run.png:
+        A screen shot from a WIFI SSH session in which I ran a trivial (hello world) program.
+
+    5. git.png:
+        A screen shot (git.png) from a WIFI SSH session in which I installed git and cloned a repository.
+    
+    6. Makefile:
+        Makefile that contains two targets: dist and clean. Dist builds the required compressed tarball 
+        with all the png files and the files described in the README.
+    
+    7: README:
+        README contains a description of all of the files in the Tarball.
