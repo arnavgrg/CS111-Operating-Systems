@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "math.h": "c",
+        "getopt.h": "c",
+        "poll.h": "c",
+        "stdio.h": "c"
+    }
+}

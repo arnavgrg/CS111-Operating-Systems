@@ -1,3 +1,29 @@
 NAME: Arnav Garg
 ID: 304911796
 EMAIL: arnavgrg@ucla.edu
+
+Files:
+    lab4b.c:
+        This program contains code that logs temperature values from an analog 
+        temperature sensor on the Beaglebone Green Wireless embedded system, and 
+        can process commands passed in through a pipe. It also has a GPIO button
+        that can stop execution of the program. Additionally, a user can enable/disable 
+        logging features and change the scale of temperature readings to farhenheit or
+        celcius.
+
+    README:
+        This file contains a description of all the files enclosed in the compressed
+        tarball.
+
+    Makefile:
+        Makefile supports 4 different targets - default, clean, dist and check. Default 
+        builds the executable, clean removes all compressed tarballs and the executable,
+        dist creates the required compressed tarball with all of the files mentioned in
+        the README, and check runs smoke tests executes an automated smoke-test of the 
+        executable to see if it runs and can talk to its sensors.
+
+    tests.sh:
+        Contains a set of smoke tests to ensure the executable works correctly, understands
+        run-time stdin inputs, logs to files correctly, updates periods correctly. 
+
+
