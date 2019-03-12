@@ -239,6 +239,11 @@ void process_inputs(char* input) {
 	//Need to do nothing, just record it
 	else if (log_ptr) 
 		write_to_log_file(log_ptr);
+	//The command is not one we recognise
+	//If logging is enabled, all received commands (valid or not) should be appended to the log file (exactly as received, 
+	//with no timestamp) but not displayed to standard output. 
+	else 
+		write_to_log_file(input);
 	//Reset to null to prevent dangling pointers problems
 	period_ptr = NULL;
 	log_ptr = NULL;
