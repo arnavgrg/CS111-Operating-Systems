@@ -253,7 +253,8 @@ void log_entry() {
 		//Write to server
 		char time_string[50];
 		sprintf(time_string, "%s %.1f\n", p_time, temperature);
-		SSL_write(ssl, time_string, strlen(time_string));
+		if (SSL_write(ssl, time_string, strlen(time_string)) <= 0)
+			print_error("Failed to log time stamp and temperature");
 		//If logging is turned on, write to logfile
 		if (log_file) {
 			fprintf(log_file, "%s %.1f\n", p_time, temperature);
@@ -275,7 +276,8 @@ void shut_down() {
 	//Write to server
 	char out[50];
 	sprintf(out, "%s SHUTDOWN", p_time);
-  	SSL_write(ssl, out, strlen(out));
+  	if (SSL_write(ssl, out, strlen(out)) <= 0)
+		print_error("Failed to shutdown");
   	//If there is a log file, write to the logfile
   	if (log_file) {
     	fprintf(log_file, "%s SHUTDOWN", p_time);
@@ -515,7 +517,7 @@ int main(int argc, char* argv[]) {
 	//write ID to server
 	char out[15];
 	sprintf(out, "ID=%s\n", id_num);
-	if (SSL_write(ssl, out, strlen(out)) < 0)
+	if (SSL_write(ssl, out, strlen(out)) <= 0)
 		print_error("Failed to write ID to server");
 
 	//Also write to logfile
