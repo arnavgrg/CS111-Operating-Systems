@@ -251,9 +251,9 @@ void log_entry() {
 		//Initialize a string and get the current time
     	char* p_time = getTime();
 		//Write to server
-		char out[50];
-		sprintf(out, "%s %.1f\n", p_time, temperature);
-		SSL_write(ssl, out, strlen(out)+1);
+		char time_string[50];
+		sprintf(time_string, "%s %.1f\n", p_time, temperature);
+		SSL_write(ssl, time_string, strlen(time_string));
 		//If logging is turned on, write to logfile
 		if (log_file) {
 			fprintf(log_file, "%s %.1f\n", p_time, temperature);
@@ -274,11 +274,11 @@ void shut_down() {
   	char* p_time = getTime();
 	//Write to server
 	char out[50];
-	sprintf(out, "%s SHUTDOWN\n", p_time);
-  	SSL_write(ssl, out, strlen(out) + 1);
+	sprintf(out, "%s SHUTDOWN", p_time);
+  	SSL_write(ssl, out, strlen(out));
   	//If there is a log file, write to the logfile
   	if (log_file) {
-    	fprintf(log_file, "%s SHUTDOWN\n", p_time);
+    	fprintf(log_file, "%s SHUTDOWN", p_time);
 		fflush(log_file);
 		//Want to free this memory to prevent memory
 		free(p_time);
@@ -381,7 +381,7 @@ void process_inputs(char* input) {
 void read_from_server(char* input) {
 	//Server returns values such as START PERIOD=7, SCALE=C, STOP, D=3, D= etc.
 	//Value saved in input
-	int rd = SSL_read(ssl, input, 256);
+	int rd = SSL_read(ssl, input, 512);
 	if (rd < 0)
 		print_error_with_errno("Failed to read from server", errno);
 	else 
@@ -487,7 +487,9 @@ int main(int argc, char* argv[]) {
 	connect_to_server();
 
 	//Initialize Library
-	SSL_library_init();
+	if (SSL_library_init() < 0)
+		print_error("Failed to initialize openSSL library");
+
     SSL_load_error_strings();
     OpenSSL_add_all_algorithms();
 
@@ -507,20 +509,27 @@ int main(int argc, char* argv[]) {
 		print_error("Failed to associate file descriptor with SSL client");
 	
 	//Initiate the TLS/SSL handshake with an TLS/SSL server
-	if (SSL_connect(ssl) <= 0)
+	if (SSL_connect(ssl) != 1)
 		print_error("SSL connection failed");
 
-	//write bytes to a TLS/SSL connection
-	char out[50];
+	//write ID to server
+	char out[15];
 	sprintf(out, "ID=%s\n", id_num);
-	SSL_write(ssl, out, strlen(out) + 1);
+	if (SSL_write(ssl, out, strlen(out)) < 0)
+		print_error("Failed to write ID to server");
+
+	//Also write to logfile
+	if (log_file) {
+		fprintf(log_file, "ID=%s\n", id_num);
+		fflush(log_file);
+	}
 
 	//POLLIN: There is data to read
     cmdsPoll.fd = sock;
     cmdsPoll.events = POLLIN;
 
 	//Create memory to read in string from STDIN during run time
-	char user_input[256];
+	char user_input[512];
 
     //Need to check for stdin based events, as well as continue logging until a button press/OFF is detected
     while(1 == 1) {

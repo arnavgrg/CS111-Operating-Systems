@@ -2,4 +2,28 @@ NAME: Arnav Garg
 EMAIL: arnavgrg@ucla.edu
 ID: 304911796
 
+Files:
+    README:
+        This contains a description of all the files in the compressed Tarball.
+
+    Makefile:
+        The makefile contains three targets default, dist and clean. It helps compile 
+        lab4c_tcp.c and lab4c_tls.c, as well as build a compressed tarball containing 
+        the four files described in the README. The clean target removes all compressed
+        tarballs and executables.
+
+    lab4c_tcp.c:
+        This C file builds on lab 4b's temperature polling and command processing to connect 
+        to and receive commands from a tcp server. A port number and hostname should be specified 
+        to connect to it. The program also takes a 9 digit id which it immediately reports to 
+        the server. The temperature logs are sent to the server, while it receives commands sent 
+        by the server. The server directly controls execution of the beaglebone, and eventually 
+        issues the OFFF command to stop execution of the program.
+
+    lab4c_tls.c:
+        This C file builds on lab 4C's TCP implementation, but instead of using a TCP connection,
+        it uses a TLS connection. The only difference is that it uses the SSL library instead. The
+        communication to and from the server remainds the same as described in lab4c_tcp.c
+
+Helpful Links:
 https://www.gta.ufrj.br/ensino/eel878/sockets/sockaddr_inman.html
